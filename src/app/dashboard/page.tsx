@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type Product = { 
   id: number; 
@@ -22,6 +22,8 @@ type SaleRecord = {
   totalUSD: number;
   totalBs: number;
   exchangeRate: number;
+  paymentMethod: string;
+  changeUSD: number;
 };
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -36,11 +38,35 @@ const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports'>('pos');
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  
+  // Estados con persistencia en localStorage
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pos_products');
+      if (saved) return JSON.parse(saved);
+    }
+    return INITIAL_PRODUCTS;
+  });
+
+  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pos_sales');
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
+
+  const [exchangeRate, setExchangeRate] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pos_bcv');
+      if (saved) return parseFloat(saved);
+    }
+    return 776.00;
+  });
+
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [exchangeRate, setExchangeRate] = useState<number>(776.00);
   const [cashGivenUSD, setCashGivenUSD] = useState<string>('');
-  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<'Efectivo USD' | 'Pago Móvil / Bs' | 'Divisa Mixta'>('Efectivo USD');
 
   // Filtros y búsqueda en POS
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,6 +79,19 @@ export default function DashboardPOS() {
   const [newCategory, setNewCategory] = useState('Comida');
   const [newTaxable, setNewTaxable] = useState(true);
   const [newStock, setNewStock] = useState('');
+
+  // Guardar en localStorage ante cambios
+  useEffect(() => {
+    localStorage.setItem('pos_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('pos_sales', JSON.stringify(salesHistory));
+  }, [salesHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('pos_bcv', exchangeRate.toString());
+  }, [exchangeRate]);
 
   const addToCart = (product: Product) => {
     if (product.stock <= 0) {
@@ -148,12 +187,49 @@ export default function DashboardPOS() {
       totalUSD,
       totalBs,
       exchangeRate,
+      paymentMethod,
+      changeUSD,
     };
 
     setSalesHistory(prev => [newSale, ...prev]);
-    alert(`¡Pago procesado con éxito!\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
+    alert(`¡Pago procesado con éxito!\nMétodo: ${paymentMethod}\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
     setCart([]);
     setCashGivenUSD('');
+  };
+
+  // Descargar Reporte Z en TXT
+  const downloadReportZ = () => {
+    const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
+    const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
+    const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
+
+    const reportContent = `
+========================================
+       REPORTE DE CIERRE DE CAJA (Z)     
+========================================
+Fecha de Emisión: ${new Date().toLocaleString()}
+Tasa BCV Aplicada: Bs. ${exchangeRate}
+----------------------------------------
+ESTADÍSTICAS GENERALES:
+- Total Transacciones: ${salesHistory.length}
+- Ingresos Totales (USD): $${totalSalesRevenueUSD.toFixed(2)}
+- Ingresos Totales (Bs.): Bs. ${totalSalesRevenueBs.toFixed(2)}
+- Total IVA Recaudado (16%): $${totalTaxesCollected.toFixed(2)}
+----------------------------------------
+DETALLE DE TICKETS DE LA SESIÓN:
+${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.toFixed(2)} / Bs. ${s.totalBs.toFixed(2)} (${s.paymentMethod})`).join('\n')}
+========================================
+       FIN DEL REPORTE FISCAL Z         
+========================================
+    `.trim();
+
+    const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Reporte_Cierre_Z_${Date.now()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   // Filtrado de productos en catálogo
@@ -290,7 +366,7 @@ export default function DashboardPOS() {
                 <span className="text-xs font-normal text-slate-400">{cart.length} items</span>
               </h2>
 
-              <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                 {cart.length === 0 && (
                   <div className="text-center py-8 text-slate-500 text-sm">
                     No hay productos en el ticket.
@@ -345,7 +421,19 @@ export default function DashboardPOS() {
                 </div>
               </div>
 
+              {/* Selector de Método de Pago */}
               <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago</label>
+                <select 
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 mb-2"
+                >
+                  <option value="Efectivo USD">Efectivo USD ($)</option>
+                  <option value="Pago Móvil / Bs">Pago Móvil / Bolívares (Bs.)</option>
+                  <option value="Divisa Mixta">Divisa Mixta</option>
+                </select>
+
                 <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido ($)</label>
                 <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
                   <input 
@@ -384,7 +472,7 @@ export default function DashboardPOS() {
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
-            <span className="text-sm text-slate-400">Control de costos, márgenes y fiscalidad</span>
+            <span className="text-sm text-slate-400">Control de costos, márgenes y fiscalidad (Guardado automático)</span>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
@@ -503,8 +591,18 @@ export default function DashboardPOS() {
       {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z)</h2>
-            <span className="text-sm text-slate-400">Resumen operativo de ventas</span>
+            <div>
+              <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z)</h2>
+              <span className="text-sm text-slate-400">Resumen operativo y fiscal de ventas</span>
+            </div>
+            {salesHistory.length > 0 && (
+              <button 
+                onClick={downloadReportZ}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+              >
+                📥 Descargar Reporte Z (TXT)
+              </button>
+            )}
           </div>
 
           {/* Tarjetas de Resumen */}
@@ -538,7 +636,7 @@ export default function DashboardPOS() {
               {salesHistory.map(sale => (
                 <div key={sale.id} className="bg-slate-950 border border-slate-800/80 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <div className="text-xs text-slate-400 font-medium">Ticket #{sale.id} • <span className="text-slate-300">{sale.date}</span></div>
+                    <div className="text-xs text-slate-400 font-medium">Ticket #{sale.id} • <span className="text-slate-300">{sale.date}</span> • <span className="text-blue-400 font-semibold">{sale.paymentMethod}</span></div>
                     <div className="text-sm font-semibold text-slate-200 mt-1">
                       {sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
                     </div>
