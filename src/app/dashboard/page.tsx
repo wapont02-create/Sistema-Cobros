@@ -13,7 +13,7 @@ type Product = {
 
 type CartItem = Product & { quantity: number };
 
-type PaymentMethodType = 'Efectivo USD' | 'Efectivo Bs' | 'Pago Móvil' | 'Zelle' | 'Binance Pay';
+type PaymentMethodType = 'Efectivo USD' | 'Efectivo Bs' | 'Pago Móvil' | 'Zelle' | 'Binance Pay' | 'Crédito / Fiado';
 
 type SaleRecord = {
   id: number;
@@ -26,6 +26,19 @@ type SaleRecord = {
   exchangeRate: number;
   paymentMethod: PaymentMethodType;
   changeUSD: number;
+  clientName?: string;
+};
+
+type CreditAccount = {
+  id: number;
+  clientName: string;
+  clientPhone: string;
+  clientDocument: string;
+  totalDebtUSD: number;
+  totalDebtBs: number;
+  date: string;
+  status: 'Pendiente' | 'Pagado';
+  saleId: number;
 };
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -39,7 +52,7 @@ const INITIAL_PRODUCTS: Product[] = [
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
-  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'credits'>('pos');
   
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
@@ -52,6 +65,14 @@ export default function DashboardPOS() {
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('pos_sales');
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
+
+  const [credits, setCredits] = useState<CreditAccount[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pos_credits');
       if (saved) return JSON.parse(saved);
     }
     return [];
@@ -70,6 +91,11 @@ export default function DashboardPOS() {
   const [cashGivenUSD, setCashGivenUSD] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('Efectivo USD');
 
+  // Datos para crédito / cliente
+  const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientDocument, setClientDocument] = useState('');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
@@ -87,6 +113,10 @@ export default function DashboardPOS() {
   useEffect(() => {
     localStorage.setItem('pos_sales', JSON.stringify(salesHistory));
   }, [salesHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('pos_credits', JSON.stringify(credits));
+  }, [credits]);
 
   useEffect(() => {
     localStorage.setItem('pos_bcv', exchangeRate.toString());
@@ -167,6 +197,11 @@ export default function DashboardPOS() {
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
+    if (paymentMethod === 'Crédito / Fiado' && !clientName) {
+      alert('Debe ingresar el nombre del cliente para registrar una venta a crédito.');
+      return;
+    }
+
     setProducts(prev => prev.map(prod => {
       const cartItem = cart.find(c => c.id === prod.id);
       if (cartItem) {
@@ -175,8 +210,9 @@ export default function DashboardPOS() {
       return prod;
     }));
 
+    const saleId = Date.now();
     const newSale: SaleRecord = {
-      id: Date.now(),
+      id: saleId,
       date: new Date().toLocaleString(),
       items: [...cart],
       subtotalUSD,
@@ -186,13 +222,40 @@ export default function DashboardPOS() {
       exchangeRate,
       paymentMethod,
       changeUSD,
+      clientName: paymentMethod === 'Crédito / Fiado' ? clientName : undefined,
     };
 
     setSalesHistory(prev => [newSale, ...prev]);
-    alert(`¡Pago procesado con éxito!\nMétodo: ${paymentMethod}\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
+
+    if (paymentMethod === 'Crédito / Fiado') {
+      const newCredit: CreditAccount = {
+        id: Date.now(),
+        clientName,
+        clientPhone: clientPhone || 'N/A',
+        clientDocument: clientDocument || 'N/A',
+        totalDebtUSD: totalUSD,
+        totalDebtBs: totalBs,
+        date: new Date().toLocaleString(),
+        status: 'Pendiente',
+        saleId,
+      };
+      setCredits(prev => [newCredit, ...prev]);
+      alert(`¡Crédito registrado con éxito para ${clientName}!\nTotal: $${totalUSD.toFixed(2)} (Bs. ${totalBs.toFixed(2)})`);
+    } else {
+      alert(`¡Pago procesado con éxito!\nMétodo: ${paymentMethod}\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
+    }
+
     setCart([]);
     setCashGivenUSD('');
+    setClientName('');
+    setClientPhone('');
+    setClientDocument('');
     setIsCheckoutModalOpen(false);
+  };
+
+  const payCredit = (creditId: number) => {
+    setCredits(prev => prev.map(c => c.id === creditId ? { ...c, status: 'Pagado', totalDebtUSD: 0, totalDebtBs: 0 } : c));
+    alert('¡Cuenta por cobrar saldada con éxito!');
   };
 
   const getMethodStats = (method: PaymentMethodType) => {
@@ -208,10 +271,13 @@ export default function DashboardPOS() {
   const statsPagoMovil = getMethodStats('Pago Móvil');
   const statsZelle = getMethodStats('Zelle');
   const statsBinance = getMethodStats('Binance Pay');
+  const statsCredito = getMethodStats('Crédito / Fiado');
 
   const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
   const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
   const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
+  const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtUSD, 0);
+  const pendingCreditsBs = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtBs, 0);
 
   const downloadReportZ = () => {
     const reportContent = `
@@ -226,6 +292,7 @@ RESUMEN GENERAL:
 - Ingresos Totales (USD): $${totalSalesRevenueUSD.toFixed(2)}
 - Ingresos Totales (Bs.): Bs. ${totalSalesRevenueBs.toFixed(2)}
 - IVA Total Recaudado (16%): $${totalTaxesCollected.toFixed(2)}
+- Cuentas por Cobrar Pendientes: $${pendingCreditsUSD.toFixed(2)}
 ----------------------------------------
 DESGLOSE POR MÉTODO DE PAGO EN CAJA:
 1. Efectivo USD ($): 
@@ -233,29 +300,24 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
    - Monto: $${statsEfectivoUSD.totalUSD.toFixed(2)}
 2. Pago Móvil (Bs.): 
    - Transacciones: ${statsPagoMovil.count}
-   - Monto: Bs. ${statsPagoMovil.totalBs.toFixed(2)} ($${statsPagoMovil.totalUSD.toFixed(2)})
+   - Monto: Bs. ${statsPagoMovil.totalBs.toFixed(2)}
 3. Zelle ($): 
    - Transacciones: ${statsZelle.count}
    - Monto: $${statsZelle.totalUSD.toFixed(2)}
 4. Binance Pay (USDT): 
    - Transacciones: ${statsBinance.count}
    - Monto: $${statsBinance.totalUSD.toFixed(2)}
-5. Efectivo Bs. (Bs.): 
-   - Transacciones: ${statsEfectivoBs.count}
-   - Monto: Bs. ${statsEfectivoBs.totalBs.toFixed(2)} ($${statsEfectivoBs.totalUSD.toFixed(2)})
+5. Crédito / Fiado: 
+   - Transacciones: ${statsCredito.count}
+   - Monto: $${statsCredito.totalUSD.toFixed(2)}
 ----------------------------------------
-DETALLE DE TICKETS:
-${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.toFixed(2)} / Bs. ${s.totalBs.toFixed(2)} [Método: ${s.paymentMethod}]`).join('\n')}
-========================================
-       FIN DEL REPORTE FISCAL Z         
-========================================
     `.trim();
 
     const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Reporte_Cierre_Z_Detallado_${Date.now()}.txt`;
+    link.download = `Reporte_Cierre_Z_${Date.now()}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -273,24 +335,30 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
           <span className="text-xl font-black text-blue-400">⚡ POS Enterprise Venezuela</span>
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <div className="flex flex-wrap bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
             <button 
               onClick={() => setActiveTab('pos')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'pos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'pos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               🛒 Caja POS
             </button>
             <button 
               onClick={() => setActiveTab('inventory')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               📦 Inventario
             </button>
             <button 
-              onClick={() => setActiveTab('reports')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              onClick={() => setActiveTab('credits')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'credits' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
-              📊 Reportes / Cierre Z
+              📒 Cuentas x Cobrar
+            </button>
+            <button 
+              onClick={() => setActiveTab('reports')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              📊 Reportes Z
             </button>
           </div>
         </div>
@@ -454,14 +522,14 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
         </main>
       )}
 
-      {/* MODAL DE MÉTODOS DE PAGO */}
+      {/* MODAL DE MÉTODOS DE PAGO Y CRÉDITO */}
       {isCheckoutModalOpen && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-white">Confirmar Pago</h3>
-                <p className="text-xs text-slate-400">Seleccione el método y procese la transacción</p>
+                <h3 className="text-lg font-bold text-white">Confirmar Pago o Crédito</h3>
+                <p className="text-xs text-slate-400">Seleccione el método de pago</p>
               </div>
               <button 
                 onClick={() => setIsCheckoutModalOpen(false)}
@@ -482,7 +550,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago</label>
                 <select 
@@ -495,26 +563,65 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                   <option value="Zelle">🌐 Zelle ($)</option>
                   <option value="Binance Pay">🪙 Binance Pay (USDT)</option>
                   <option value="Efectivo Bs">💵 Efectivo Bolívares (Bs.)</option>
+                  <option value="Crédito / Fiado">📒 Crédito / Fiado (Cuentas x Cobrar)</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido / Referencia ($ o Bs)</label>
-                <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
-                  <input 
-                    type="number" 
-                    step="0.1"
-                    value={cashGivenUSD}
-                    onChange={(e) => setCashGivenUSD(e.target.value)}
-                    placeholder="0.00"
-                    className="bg-transparent text-white focus:outline-none w-full text-sm"
-                  />
-                  <div className="text-right">
-                    <span className="text-xs text-slate-500">Vuelto: <strong className="text-emerald-400">${changeUSD.toFixed(2)}</strong></span>
-                    <div className="text-[10px] text-slate-500">Bs. {changeBs.toFixed(2)}</div>
+              {paymentMethod === 'Crédito / Fiado' ? (
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2.5">
+                  <div className="text-xs font-bold text-amber-400">Datos del Cliente (Crédito)</div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Nombre y Apellido *</label>
+                    <input 
+                      type="text" 
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      placeholder="Ej. Juan Pérez"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">Cédula / RIF</label>
+                      <input 
+                        type="text" 
+                        value={clientDocument}
+                        onChange={(e) => setClientDocument(e.target.value)}
+                        placeholder="V-12345678"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">Teléfono</label>
+                      <input 
+                        type="text" 
+                        value={clientPhone}
+                        onChange={(e) => setClientPhone(e.target.value)}
+                        placeholder="0414-0000000"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido / Referencia ($ o Bs)</label>
+                  <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
+                    <input 
+                      type="number" 
+                      step="0.1"
+                      value={cashGivenUSD}
+                      onChange={(e) => setCashGivenUSD(e.target.value)}
+                      placeholder="0.00"
+                      className="bg-transparent text-white focus:outline-none w-full text-sm"
+                    />
+                    <div className="text-right">
+                      <span className="text-xs text-slate-500">Vuelto: <strong className="text-emerald-400">${changeUSD.toFixed(2)}</strong></span>
+                      <div className="text-[10px] text-slate-500">Bs. {changeBs.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -654,20 +761,78 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
         </main>
       )}
 
-      {/* VISTA 3: REPORTES Y CIERRE DE CAJA Z DETALLADO */}
+      {/* VISTA 3: CUENTAS POR COBRAR (FIADOS / APARTADOS) */}
+      {activeTab === 'credits' && (
+        <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold">Módulo de Cuentas por Cobrar (Fiados)</h2>
+              <span className="text-sm text-slate-400">Control de créditos otorgados y estatus de cobro a clientes</span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+              <div className="text-xs text-slate-400">Total Pendiente:</div>
+              <div className="text-base font-black text-amber-400">${pendingCreditsUSD.toFixed(2)} <span className="text-xs text-emerald-400">(Bs. {pendingCreditsBs.toFixed(2)})</span></div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-200">Listado de Créditos de Clientes</h3>
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              {credits.length === 0 && (
+                <div className="text-center py-12 text-slate-500 text-sm">
+                  No hay cuentas por cobrar registradas.
+                </div>
+              )}
+              {credits.map(credit => (
+                <div key={credit.id} className="bg-slate-950 border border-slate-800/80 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-base">{credit.clientName}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${credit.status === 'Pendiente' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                        {credit.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Doc: <strong className="text-slate-300">{credit.clientDocument}</strong> • Tel: <strong className="text-slate-300">{credit.clientPhone}</strong> • Fecha: {credit.date}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="text-right">
+                      <div className="text-base font-bold text-amber-400">${credit.totalDebtUSD.toFixed(2)}</div>
+                      <div className="text-xs text-emerald-400">Bs. {credit.totalDebtBs.toFixed(2)}</div>
+                    </div>
+
+                    {credit.status === 'Pendiente' && (
+                      <button 
+                        onClick={() => payCredit(credit.id)}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20"
+                      >
+                        Saldar Cuenta 💰
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* VISTA 4: REPORTES Y CIERRE DE CAJA Z */}
       {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z) Detallado</h2>
-              <span className="text-sm text-slate-400">Auditoría por método de pago (Efectivo, Pago Móvil, Zelle, Binance)</span>
+              <span className="text-sm text-slate-400">Auditoría por método de pago</span>
             </div>
             {salesHistory.length > 0 && (
               <button 
                 onClick={downloadReportZ}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center gap-2"
               >
-                📥 Descargar Reporte Z Detallado (TXT)
+                📥 Descargar Reporte Z (TXT)
               </button>
             )}
           </div>
@@ -698,7 +863,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-emerald-400 font-bold mb-1">📱 Pago Móvil</div>
-              <div className="text-lg font-black">Bs. {statsEfectivoBs.totalBs > 0 ? statsEfectivoBs.totalBs.toFixed(2) : statsPagoMovil.totalBs.toFixed(2)}</div>
+              <div className="text-lg font-black">Bs. {statsPagoMovil.totalBs.toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">{statsPagoMovil.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
@@ -712,34 +877,9 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
               <div className="text-xs text-slate-500 mt-1">{statsBinance.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-              <div className="text-xs text-teal-400 font-bold mb-1">💵 Efectivo Bs</div>
-              <div className="text-lg font-black">Bs. {statsEfectivoBs.totalBs.toFixed(2)}</div>
-              <div className="text-xs text-slate-500 mt-1">{statsEfectivoBs.count} operaciones</div>
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-200">Historial Detallado de Tickets</h3>
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-              {salesHistory.length === 0 && (
-                <div className="text-center py-12 text-slate-500 text-sm">
-                  Aún no se han registrado ventas en esta sesión de caja.
-                </div>
-              )}
-              {salesHistory.map(sale => (
-                <div key={sale.id} className="bg-slate-950 border border-slate-800/80 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <div className="text-xs text-slate-400 font-medium">Ticket #{sale.id} • <span className="text-slate-300">{sale.date}</span> • <span className="text-blue-400 font-semibold uppercase">{sale.paymentMethod}</span></div>
-                    <div className="text-sm font-semibold text-slate-200 mt-1">
-                      {sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-base font-bold text-blue-400">${sale.totalUSD.toFixed(2)}</div>
-                    <div className="text-xs text-emerald-400 font-medium">Bs. {sale.totalBs.toFixed(2)}</div>
-                  </div>
-                </div>
-              ))}
+              <div className="text-xs text-teal-400 font-bold mb-1">📒 Créditos</div>
+              <div className="text-lg font-black">${statsCredito.totalUSD.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsCredito.count} operaciones</div>
             </div>
           </div>
         </main>
@@ -747,4 +887,3 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
     </div>
   );
 }
-```[cite: 1]
