@@ -1,7 +1,7 @@
 // components/RolesManagerModule.jsx
 'use client';
 import { useState, useEffect } from 'react';
-import { getRoles, getUsers, saveUsers } from '@/utils/rolesManager';
+import { getRoles, getUsers, saveUsers } from '../utils/rolesManager'';
 
 const ALL_PERMISSIONS = [
   { key: 'view_pos', label: '🛒 Acceso a Caja POS' },
