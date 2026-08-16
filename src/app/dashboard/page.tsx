@@ -13,6 +13,8 @@ type Product = {
 
 type CartItem = Product & { quantity: number };
 
+type PaymentMethodType = 'Efectivo USD' | 'Efectivo Bs' | 'Pago Móvil' | 'Zelle' | 'Binance Pay';
+
 type SaleRecord = {
   id: number;
   date: string;
@@ -22,7 +24,7 @@ type SaleRecord = {
   totalUSD: number;
   totalBs: number;
   exchangeRate: number;
-  paymentMethod: string;
+  paymentMethod: PaymentMethodType;
   changeUSD: number;
 };
 
@@ -39,7 +41,6 @@ const IVA_RATE = 0.16;
 export default function DashboardPOS() {
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports'>('pos');
   
-  // Estados con persistencia en localStorage
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('pos_products');
@@ -66,13 +67,11 @@ export default function DashboardPOS() {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cashGivenUSD, setCashGivenUSD] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'Efectivo USD' | 'Pago Móvil / Bs' | 'Divisa Mixta'>('Efectivo USD');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('Efectivo USD');
 
-  // Filtros y búsqueda en POS
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
-  // Formulario nuevo producto
   const [newName, setNewName] = useState('');
   const [newCostPrice, setNewCostPrice] = useState('');
   const [newPrice, setNewPrice] = useState('');
@@ -80,7 +79,6 @@ export default function DashboardPOS() {
   const [newTaxable, setNewTaxable] = useState(true);
   const [newStock, setNewStock] = useState('');
 
-  // Guardar en localStorage ante cambios
   useEffect(() => {
     localStorage.setItem('pos_products', JSON.stringify(products));
   }, [products]);
@@ -168,7 +166,6 @@ export default function DashboardPOS() {
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
-    // Descontar stock
     setProducts(prev => prev.map(prod => {
       const cartItem = cart.find(c => c.id === prod.id);
       if (cartItem) {
@@ -177,7 +174,6 @@ export default function DashboardPOS() {
       return prod;
     }));
 
-    // Registrar venta en historial
     const newSale: SaleRecord = {
       id: Date.now(),
       date: new Date().toLocaleString(),
@@ -197,12 +193,27 @@ export default function DashboardPOS() {
     setCashGivenUSD('');
   };
 
-  // Descargar Reporte Z en TXT
-  const downloadReportZ = () => {
-    const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
-    const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
-    const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
+  // Cálculos detallados por método de pago para el Reporte Z
+  const getMethodStats = (method: PaymentMethodType) => {
+    const filtered = salesHistory.filter(s => s.paymentMethod === method);
+    const count = filtered.length;
+    const totalUSD = filtered.reduce((sum, s) => sum + s.totalUSD, 0);
+    const totalBs = filtered.reduce((sum, s) => sum + s.totalBs, 0);
+    return { count, totalUSD, totalBs };
+  };
 
+  const statsEfectivoUSD = getMethodStats('Efectivo USD');
+  const statsEfectivoBs = getMethodStats('Efectivo Bs');
+  const statsPagoMovil = getMethodStats('Pago Móvil');
+  const statsZelle = getMethodStats('Zelle');
+  const statsBinance = getMethodStats('Binance Pay');
+
+  const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
+  const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
+  const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
+
+  // Descarga del Reporte Z detallado en TXT
+  const downloadReportZ = () => {
     const reportContent = `
 ========================================
        REPORTE DE CIERRE DE CAJA (Z)     
@@ -210,14 +221,31 @@ export default function DashboardPOS() {
 Fecha de Emisión: ${new Date().toLocaleString()}
 Tasa BCV Aplicada: Bs. ${exchangeRate}
 ----------------------------------------
-ESTADÍSTICAS GENERALES:
-- Total Transacciones: ${salesHistory.length}
+RESUMEN GENERAL:
+- Transacciones Totales: ${salesHistory.length}
 - Ingresos Totales (USD): $${totalSalesRevenueUSD.toFixed(2)}
 - Ingresos Totales (Bs.): Bs. ${totalSalesRevenueBs.toFixed(2)}
-- Total IVA Recaudado (16%): $${totalTaxesCollected.toFixed(2)}
+- IVA Total Recaudado (16%): $${totalTaxesCollected.toFixed(2)}
 ----------------------------------------
-DETALLE DE TICKETS DE LA SESIÓN:
-${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.toFixed(2)} / Bs. ${s.totalBs.toFixed(2)} (${s.paymentMethod})`).join('\n')}
+DESGLOSE POR MÉTODO DE PAGO EN CAJA:
+1. Efectivo USD ($): 
+   - Transacciones: ${statsEfectivoUSD.count}
+   - Monto: $${statsEfectivoUSD.totalUSD.toFixed(2)}
+2. Pago Móvil (Bs.): 
+   - Transacciones: ${statsPagoMovil.count}
+   - Monto: Bs. ${statsPagoMovil.totalBs.toFixed(2)} ($${statsPagoMovil.totalUSD.toFixed(2)})
+3. Zelle ($): 
+   - Transacciones: ${statsZelle.count}
+   - Monto: $${statsZelle.totalUSD.toFixed(2)}
+4. Binance Pay (USDT): 
+   - Transacciones: ${statsBinance.count}
+   - Monto: $${statsBinance.totalUSD.toFixed(2)}
+5. Efectivo Bs. (Bs.): 
+   - Transacciones: ${statsEfectivoBs.count}
+   - Monto: Bs. ${statsEfectivoBs.totalBs.toFixed(2)} ($${statsEfectivoBs.totalUSD.toFixed(2)})
+----------------------------------------
+DETALLE DE TICKETS:
+${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.toFixed(2)} / Bs. ${s.totalBs.toFixed(2)} [Método: ${s.paymentMethod}]`).join('\n')}
 ========================================
        FIN DEL REPORTE FISCAL Z         
 ========================================
@@ -227,12 +255,11 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Reporte_Cierre_Z_${Date.now()}.txt`;
+    link.download = `Reporte_Cierre_Z_Detallado_${Date.now()}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
-  // Filtrado de productos en catálogo
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
@@ -241,17 +268,11 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
 
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
 
-  // Totales de reportes
-  const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
-  const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
-  const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
-
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-      {/* Barra superior */}
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
-          <span className="text-xl font-black text-blue-400">⚡ POS Enterprise</span>
+          <span className="text-xl font-black text-blue-400">⚡ POS Enterprise Venezuela</span>
           <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
             <button 
               onClick={() => setActiveTab('pos')}
@@ -269,12 +290,11 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
               onClick={() => setActiveTab('reports')}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
-              📊 Reportes / Cierre
+              📊 Reportes / Cierre Z
             </button>
           </div>
         </div>
 
-        {/* Tasa BCV */}
         <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 px-4 py-2 rounded-xl text-xs">
           <span className="text-slate-400">Tasa BCV (Bs/$):</span>
           <input 
@@ -295,7 +315,6 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
       {activeTab === 'pos' && (
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
           <div className="lg:col-span-7 flex flex-col gap-4">
-            {/* Buscador y Filtros */}
             <div className="flex flex-col sm:flex-row gap-3">
               <input 
                 type="text"
@@ -317,7 +336,6 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
               </div>
             </div>
 
-            {/* Grid de Productos */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[550px] overflow-y-auto pr-1">
               {filteredProducts.map(product => {
                 const priceBs = product.price * exchangeRate;
@@ -326,7 +344,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                   <button 
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className={`bg-slate-900 border p-4 rounded-2xl text-left transition flex flex-col justify-between group shadow-lg shadow-black/20 ${
+                    className={`bg-slate-900 border p-4 rounded-2xl text-left transition flex flex-col justify-between group shadow-lg ${
                       isOut ? 'border-red-500/30 opacity-60 cursor-not-allowed' : 'border-slate-800 hover:border-blue-500/60'
                     }`}
                   >
@@ -358,8 +376,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
             </div>
           </div>
 
-          {/* Ticket de Venta */}
-          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl shadow-black/30">
+          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
             <div>
               <h2 className="text-lg font-bold mb-4 border-b border-slate-800 pb-3 flex justify-between items-center">
                 <span>Ticket de Venta</span>
@@ -421,20 +438,21 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                 </div>
               </div>
 
-              {/* Selector de Método de Pago */}
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago en Venezuela</label>
                 <select 
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 mb-2"
+                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethodType)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 mb-2 font-semibold text-blue-300"
                 >
-                  <option value="Efectivo USD">Efectivo USD ($)</option>
-                  <option value="Pago Móvil / Bs">Pago Móvil / Bolívares (Bs.)</option>
-                  <option value="Divisa Mixta">Divisa Mixta</option>
+                  <option value="Efectivo USD">💵 Efectivo USD ($)</option>
+                  <option value="Pago Móvil">📱 Pago Móvil (Bs.)</option>
+                  <option value="Zelle">🌐 Zelle ($)</option>
+                  <option value="Binance Pay">🪙 Binance Pay (USDT)</option>
+                  <option value="Efectivo Bs">💵 Efectivo Bolívares (Bs.)</option>
                 </select>
 
-                <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido ($)</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido / Referencia ($ o Bs)</label>
                 <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
                   <input 
                     type="number" 
@@ -460,7 +478,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}
               >
-                Procesar Pago e Imprimir Ticket
+                Procesar Venta y Registrar Pago
               </button>
             </div>
           </div>
@@ -472,7 +490,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
-            <span className="text-sm text-slate-400">Control de costos, márgenes y fiscalidad (Guardado automático)</span>
+            <span className="text-sm text-slate-400">Control de costos y márgenes</span>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
@@ -481,8 +499,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
               <div className="sm:col-span-2">
                 <label className="block text-xs text-slate-400 mb-1">Nombre</label>
                 <input 
-                  type="text" 
-                  required
+                  type="text" required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Ej. Maltín Polar"
@@ -587,46 +604,75 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
         </main>
       )}
 
-      {/* VISTA 3: REPORTES Y CIERRE DE CAJA */}
+      {/* VISTA 3: REPORTES Y CIERRE DE CAJA Z DETALLADO */}
       {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z)</h2>
-              <span className="text-sm text-slate-400">Resumen operativo y fiscal de ventas</span>
+              <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z) Detallado</h2>
+              <span className="text-sm text-slate-400">Auditoría por método de pago (Efectivo, Pago Móvil, Zelle, Binance)</span>
             </div>
             {salesHistory.length > 0 && (
               <button 
                 onClick={downloadReportZ}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center gap-2"
               >
-                📥 Descargar Reporte Z (TXT)
+                📥 Descargar Reporte Z Detallado (TXT)
               </button>
             )}
           </div>
 
-          {/* Tarjetas de Resumen */}
+          {/* Tarjetas de Resumen General */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 mb-1">Total Ingresos Recaudados</div>
+              <div className="text-xs text-slate-400 mb-1">Ingresos Totales en Caja</div>
               <div className="text-2xl font-black text-blue-400">${totalSalesRevenueUSD.toFixed(2)}</div>
               <div className="text-xs text-emerald-400 mt-1 font-semibold">Bs. {totalSalesRevenueBs.toFixed(2)}</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 mb-1">IVA Recaudado (16%)</div>
+              <div className="text-xs text-slate-400 mb-1">IVA Total Recaudado (16%)</div>
               <div className="text-2xl font-black text-amber-400">${totalTaxesCollected.toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">Impuesto fiscal de ley</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 mb-1">Transacciones Exitosas</div>
+              <div className="text-xs text-slate-400 mb-1">Total Transacciones</div>
               <div className="text-2xl font-black text-emerald-400">{salesHistory.length}</div>
-              <div className="text-xs text-slate-500 mt-1">Tickets cerrados en caja</div>
+              <div className="text-xs text-slate-500 mt-1">Tickets procesados</div>
+            </div>
+          </div>
+
+          {/* Desglose Específico por Pasarela/Método de Pago */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-blue-400 font-bold mb-1">💵 Efectivo USD</div>
+              <div className="text-lg font-black">${statsEfectivoUSD.totalUSD.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsEfectivoUSD.count} operaciones</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-emerald-400 font-bold mb-1">📱 Pago Móvil</div>
+              <div className="text-lg font-black">Bs. {statsEfectivoBs.totalBs > 0 ? statsEfectivoBs.totalBs.toFixed(2) : statsPagoMovil.totalBs.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsPagoMovil.count} operaciones</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-purple-400 font-bold mb-1">🌐 Zelle</div>
+              <div className="text-lg font-black">${statsZelle.totalUSD.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsZelle.count} operaciones</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-amber-400 font-bold mb-1">🪙 Binance Pay</div>
+              <div className="text-lg font-black">${statsBinance.totalUSD.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsBinance.count} operaciones</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-teal-400 font-bold mb-1">💵 Efectivo Bs</div>
+              <div className="text-lg font-black">Bs. {statsEfectivoBs.totalBs.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsEfectivoBs.count} operaciones</div>
             </div>
           </div>
 
           {/* Historial de Tickets */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-200">Historial de Ventas de la Sesión</h3>
+            <h3 className="text-lg font-semibold text-slate-200">Historial Detallado de Tickets</h3>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
               {salesHistory.length === 0 && (
                 <div className="text-center py-12 text-slate-500 text-sm">
@@ -636,14 +682,14 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
               {salesHistory.map(sale => (
                 <div key={sale.id} className="bg-slate-950 border border-slate-800/80 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <div className="text-xs text-slate-400 font-medium">Ticket #{sale.id} • <span className="text-slate-300">{sale.date}</span> • <span className="text-blue-400 font-semibold">{sale.paymentMethod}</span></div>
+                    <div className="text-xs text-slate-400 font-medium">Ticket #{sale.id} • <span className="text-slate-300">{sale.date}</span> • <span className="text-blue-400 font-semibold uppercase">{sale.paymentMethod}</span></div>
                     <div className="text-sm font-semibold text-slate-200 mt-1">
                       {sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-base font-bold text-blue-400">${sale.totalUSD.toFixed(2)}</div>
-                    <div className="text-xs text-emerald-400 font-medium">Bs. {sale.totalBs.toFixed(2)} (Tasa: {sale.exchangeRate})</div>
+                    <div className="text-xs text-emerald-400 font-medium">Bs. {sale.totalBs.toFixed(2)}</div>
                   </div>
                 </div>
               ))}
