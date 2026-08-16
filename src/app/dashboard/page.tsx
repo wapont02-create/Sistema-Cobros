@@ -66,6 +66,7 @@ export default function DashboardPOS() {
   });
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [cashGivenUSD, setCashGivenUSD] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('Efectivo USD');
 
@@ -191,9 +192,9 @@ export default function DashboardPOS() {
     alert(`¡Pago procesado con éxito!\nMétodo: ${paymentMethod}\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
     setCart([]);
     setCashGivenUSD('');
+    setIsCheckoutModalOpen(false);
   };
 
-  // Cálculos detallados por método de pago para el Reporte Z
   const getMethodStats = (method: PaymentMethodType) => {
     const filtered = salesHistory.filter(s => s.paymentMethod === method);
     const count = filtered.length;
@@ -212,7 +213,6 @@ export default function DashboardPOS() {
   const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
   const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
 
-  // Descarga del Reporte Z detallado en TXT
   const downloadReportZ = () => {
     const reportContent = `
 ========================================
@@ -383,7 +383,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                 <span className="text-xs font-normal text-slate-400">{cart.length} items</span>
               </h2>
 
-              <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                 {cart.length === 0 && (
                   <div className="text-center py-8 text-slate-500 text-sm">
                     No hay productos en el ticket.
@@ -438,12 +438,57 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                 </div>
               </div>
 
+              <button 
+                onClick={() => setIsCheckoutModalOpen(true)}
+                disabled={cart.length === 0}
+                className={`w-full py-3.5 rounded-xl font-bold transition shadow-lg ${
+                  cart.length > 0 
+                    ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 cursor-pointer' 
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                Procesar Venta 💳
+              </button>
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* MODAL DE MÉTODOS DE PAGO */}
+      {isCheckoutModalOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago en Venezuela</label>
+                <h3 className="text-lg font-bold text-white">Confirmar Pago</h3>
+                <p className="text-xs text-slate-400">Seleccione el método y procese la transacción</p>
+              </div>
+              <button 
+                onClick={() => setIsCheckoutModalOpen(false)}
+                className="text-slate-400 hover:text-white bg-slate-800/60 p-2 rounded-xl text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div className="text-xs text-slate-400">Total a Cancelar</div>
+                <div className="text-xl font-black text-blue-400">${totalUSD.toFixed(2)}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-400">Equivalente BCV</div>
+                <div className="text-sm font-bold text-emerald-400">Bs. {totalBs.toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago</label>
                 <select 
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethodType)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 mb-2 font-semibold text-blue-300"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold text-blue-300"
                 >
                   <option value="Efectivo USD">💵 Efectivo USD ($)</option>
                   <option value="Pago Móvil">📱 Pago Móvil (Bs.)</option>
@@ -451,9 +496,11 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                   <option value="Binance Pay">🪙 Binance Pay (USDT)</option>
                   <option value="Efectivo Bs">💵 Efectivo Bolívares (Bs.)</option>
                 </select>
+              </div>
 
+              <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido / Referencia ($ o Bs)</label>
-                <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+                <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
                   <input 
                     type="number" 
                     step="0.1"
@@ -468,21 +515,24 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
                   </div>
                 </div>
               </div>
+            </div>
 
+            <div className="flex gap-3 pt-2">
+              <button 
+                onClick={() => setIsCheckoutModalOpen(false)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs transition"
+              >
+                Cancelar
+              </button>
               <button 
                 onClick={handleCheckout}
-                disabled={cart.length === 0}
-                className={`w-full py-3.5 rounded-xl font-bold transition shadow-lg ${
-                  cart.length > 0 
-                    ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 cursor-pointer' 
-                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                }`}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-blue-600/30"
               >
-                Procesar Venta y Registrar Pago
+                Completar Cobro ⚡
               </button>
             </div>
           </div>
-        </main>
+        </div>
       )}
 
       {/* VISTA 2: INVENTARIO */}
@@ -622,7 +672,6 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
             )}
           </div>
 
-          {/* Tarjetas de Resumen General */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
               <div className="text-xs text-slate-400 mb-1">Ingresos Totales en Caja</div>
@@ -641,7 +690,6 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
             </div>
           </div>
 
-          {/* Desglose Específico por Pasarela/Método de Pago */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-blue-400 font-bold mb-1">💵 Efectivo USD</div>
@@ -670,7 +718,6 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
             </div>
           </div>
 
-          {/* Historial de Tickets */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-200">Historial Detallado de Tickets</h3>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
@@ -700,3 +747,4 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
     </div>
   );
 }
+```[cite: 1]
