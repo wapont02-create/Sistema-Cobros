@@ -1,9 +1,9 @@
 // src/app/dashboard/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
-import RoleSelector from '../../components/RoleSelector.jsx';
-import RolesManagerModule from '../../components/RolesManagerModule.jsx';
-import { hasPermission } from '../../utils/rolesManager.js';
+import RoleSelector from '@/components/RoleSelector';
+import RolesManagerModule from '@/components/RolesManagerModule';
+import { hasPermission } from '@/utils/rolesManager';
 
 export default function DashboardPage() {
   const [currentUserRole, setCurrentUserRole] = useState<string>('admin');
