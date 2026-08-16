@@ -1,9 +1,9 @@
 // src/app/dashboard/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
-import RoleSelector from '@/components/RoleSelector';
-import RolesManagerModule from '@/components/RolesManagerModule';
-import { hasPermission } from '@/utils/rolesManager';
+import RoleSelector from '../../components/RoleSelector';
+import RolesManagerModule from '../../components/RolesManagerModule';
+import { hasPermission } from '../../utils/rolesManager';
 
 export default function DashboardPage() {
   const [currentUserRole, setCurrentUserRole] = useState<string>('admin');
@@ -26,7 +26,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 flex flex-col gap-6">
       
-      {/* Cabecera Principal - Sincronizada con tu barra superior */}
+      {/* Cabecera Principal */}
       <header className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-800 pb-4">
         <div className="flex items-center gap-6">
           <h1 className="text-xl md:text-2xl font-black tracking-wider text-white">
@@ -131,17 +131,12 @@ export default function DashboardPage() {
       <section className="flex-1">
         {activeTab === 'pos' && hasPermission(currentUserRole, 'view_pos') && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Panel Izquierdo: Buscador y Productos */}
             <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <input 
-                  type="text" 
-                  placeholder="Buscar producto por nombre..."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              {/* Grid de productos de ejemplo */}
+              <input 
+                type="text" 
+                placeholder="Buscar producto por nombre..."
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500"
+              />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
                   <div className="flex justify-between text-xs">
@@ -157,40 +152,9 @@ export default function DashboardPage() {
                     <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">Stk: 41</span>
                   </div>
                 </div>
-
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-cyan-400 font-semibold uppercase">Pasapalos</span>
-                    <span className="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">IVA 16%</span>
-                  </div>
-                  <h3 className="font-bold text-white">Tequeños (6 unid.)</h3>
-                  <div className="flex justify-between items-end pt-2">
-                    <div>
-                      <p className="text-lg font-black text-white">$5.00</p>
-                      <p className="text-xs text-slate-400">Bs. 3891.65</p>
-                    </div>
-                    <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">Stk: 10</span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-cyan-400 font-semibold uppercase">Comida</span>
-                    <span className="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">IVA 16%</span>
-                  </div>
-                  <h3 className="font-bold text-white">Hamburguesa Clásica</h3>
-                  <div className="flex justify-between items-end pt-2">
-                    <div>
-                      <p className="text-lg font-black text-white">$8.50</p>
-                      <p className="text-xs text-slate-400">Bs. 6615.81</p>
-                    </div>
-                    <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">Stk: 9</span>
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Panel Derecho: Ticket de Venta */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between h-[500px]">
               <div>
                 <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
@@ -203,24 +167,6 @@ export default function DashboardPage() {
               </div>
 
               <div className="border-t border-slate-800 pt-4 space-y-3">
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Subtotal:</span>
-                    <span>$0.00</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>IVA (16%):</span>
-                    <span>$0.00</span>
-                  </div>
-                  <div className="flex justify-between text-base font-black text-white pt-2 border-t border-slate-800">
-                    <span>Total a Pagar:</span>
-                    <div className="text-right">
-                      <div className="text-cyan-400">$0.00</div>
-                      <div className="text-xs text-slate-400 font-normal">Bs. 0.00</div>
-                    </div>
-                  </div>
-                </div>
-
                 <button className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/20 text-sm">
                   Procesar Venta 💳
                 </button>
@@ -232,26 +178,6 @@ export default function DashboardPage() {
         {activeTab === 'inventory' && hasPermission(currentUserRole, 'view_inventory') && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
             <h2 className="text-xl font-bold mb-2">Módulo de Inventario</h2>
-            <p className="text-sm text-slate-400">Control de stock y precios de productos.</p>
-            {!hasPermission(currentUserRole, 'edit_inventory') && (
-              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl text-sm">
-                ⚠️ Estás operando en modo lectura (Almacenista). No puedes modificar precios ni eliminar productos.
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'receivable' && hasPermission(currentUserRole, 'view_receivable') && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-xl font-bold mb-2">Cuentas por Cobrar (Fiados)</h2>
-            <p className="text-sm text-slate-400">Gestión de créditos de clientes.</p>
-          </div>
-        )}
-
-        {activeTab === 'reports' && hasPermission(currentUserRole, 'view_reports') && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-xl font-bold mb-2">Reportes y Cierre de Caja (Z) Detallado</h2>
-            <p className="text-sm text-slate-400">Auditoría global de ingresos y cierre fiscal.</p>
           </div>
         )}
 
