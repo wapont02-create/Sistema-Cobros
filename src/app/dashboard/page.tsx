@@ -1,9 +1,9 @@
 // src/app/dashboard/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
-import RoleSelector from '@/components/RoleSelector';
-import RolesManagerModule from '@/components/RolesManagerModule';
-import { hasPermission } from '@/utils/rolesManager';
+import RoleSelector from '@/components/RoleSelector.jsx';
+import RolesManagerModule from '@/components/RolesManagerModule.jsx';
+import { hasPermission } from '@/utils/rolesManager.js';
 
 export default function DashboardPage() {
   const [currentUserRole, setCurrentUserRole] = useState<string>('admin');
@@ -99,7 +99,7 @@ export default function DashboardPage() {
             <strong className="text-white font-mono">778,33</strong>
           </div>
 
-          {/* Componente Selector de Roles (Reemplaza el texto estático de Cajero) */}
+          {/* Componente Selector de Roles */}
           <RoleSelector onUserChange={(user: any) => {
             if (user && user.role) {
               setCurrentUserRole(user.role);
@@ -130,7 +130,6 @@ export default function DashboardPage() {
       {/* Contenido Dinámico de las Pestañas */}
       <section className="flex-1">
         {activeTab === 'pos' && hasPermission(currentUserRole, 'view_pos') && (
-          /* Aquí va tu estructura actual de la Caja POS que se ve en la imagen */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Panel Izquierdo: Buscador y Productos */}
             <div className="lg:col-span-2 space-y-4">
@@ -142,7 +141,7 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Grid de productos de ejemplo como los de tu captura */}
+              {/* Grid de productos de ejemplo */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
                   <div className="flex justify-between text-xs">
