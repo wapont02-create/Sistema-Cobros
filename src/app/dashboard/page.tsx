@@ -266,4 +266,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-```[cite: 3]
