@@ -1,63 +1,55 @@
-import Link from 'next/link';
+'use client';
+import { useState } from 'react';
 
-export default function LandingPage() {
+export default function DashboardPOS() {
+  // Estado básico para simular una venta
+  const [total, setTotal] = useState(0);
+
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between">
-      {/* Barra de navegación */}
-      <header className="max-w-7xl mx-auto w-full px-6 py-6 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-black text-blue-400">⚡ POS Cloud</span>
+    <div className="min-h-screen bg-slate-950 text-white p-4 sm:p-6">
+      {/* Header del Dashboard */}
+      <header className="flex justify-between items-center mb-8 pb-4 border-b border-slate-800">
+        <h1 className="text-2xl font-bold text-blue-400">Terminal POS</h1>
+        <div className="bg-slate-900 px-4 py-2 rounded-lg text-sm text-slate-400 border border-slate-800">
+          Caja abierta: <span className="text-emerald-400 font-bold">Activa</span>
         </div>
-        <Link 
-          href="/dashboard"
-          className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-600/30"
-        >
-          Entrar al Sistema
-        </Link>
       </header>
 
-      {/* Hero Principal */}
-      <main className="max-w-5xl mx-auto px-6 py-16 text-center flex flex-col items-center">
-        <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold px-4 py-1.5 rounded-full uppercase tracking-wider mb-6">
-          La solución en la nube diseñada para comercios
-        </span>
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight mb-6">
-          El Punto de Venta más rápido <span className="text-blue-400">para tu negocio</span>
-        </h1>
-        <p className="text-slate-400 text-lg sm:text-xl max-w-2xl mb-10">
-          Gestiona tu inventario, procesa ventas en segundos y lleva el control total de tu caja desde cualquier dispositivo con sincronización en tiempo real.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-          <Link 
-            href="/dashboard"
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-lg transition shadow-xl shadow-blue-600/30"
-          >
-            Iniciar Punto de Venta
-          </Link>
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sección de Productos */}
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+          <h2 className="text-lg font-semibold mb-4">Productos Disponibles</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {['Café', 'Pan', 'Leche', 'Azúcar', 'Arroz', 'Harina'].map((item) => (
+              <button 
+                key={item}
+                onClick={() => setTotal(prev => prev + 10)} // Simulación de precio
+                className="bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-blue-500 transition text-center"
+              >
+                <div className="text-xl mb-1">🛒</div>
+                <div className="font-medium">{item}</div>
+                <div className="text-blue-400 text-sm">$10.00</div>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Características */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 w-full text-left">
-          <div className="bg-slate-800/50 border border-slate-700/60 p-6 rounded-2xl">
-            <div className="text-blue-400 font-bold text-xl mb-2">⚡ Ventas Rápidas</div>
-            <p className="text-slate-400 text-sm">Procesa pagos y calcula vueltos al instante con una interfaz optimizada para agilizar la caja.</p>
+        {/* Sección de Ticket de Venta */}
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+          <h2 className="text-lg font-semibold mb-4">Ticket de Venta</h2>
+          <div className="h-64 bg-slate-950 rounded-xl mb-4 p-4 border border-slate-800 overflow-y-auto">
+            {total === 0 && <p className="text-slate-600 text-sm text-center mt-10">El carrito está vacío</p>}
+            {total > 0 && <p className="text-blue-400 font-bold">Total acumulado: ${total.toFixed(2)}</p>}
           </div>
-          <div className="bg-slate-800/50 border border-slate-700/60 p-6 rounded-2xl">
-            <div className="text-blue-400 font-bold text-xl mb-2">📦 Inventario Real</div>
-            <p className="text-slate-400 text-sm">Control total de tu stock actualizado automáticamente cada vez que realizas una transacción.</p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-700/60 p-6 rounded-2xl">
-            <div className="text-blue-400 font-bold text-xl mb-2">☁️ Cloud Sync</div>
-            <p className="text-slate-400 text-sm">Tus datos seguros, sincronizados y respaldados en la nube gracias a SQLite Cloud.</p>
-          </div>
+          
+          <button 
+            onClick={() => setTotal(0)}
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-blue-600/20"
+          >
+            Procesar Pago
+          </button>
         </div>
       </main>
-
-      {/* Pie de página */}
-      <footer className="border-t border-slate-800 py-6 text-center text-slate-500 text-sm">
-        Sistema de Cobros y Ventas • Todos los derechos reservados.
-      </footer>
     </div>
   );
 }
