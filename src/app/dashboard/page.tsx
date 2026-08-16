@@ -2,13 +2,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import RoleSelector from '@/components/RoleSelector';
-import { hasPermission } from '@/utils/permissions';
+import RolesManagerModule from '@/components/RolesManagerModule';
+import { hasPermission } from '@/utils/rolesManager';
 
 export default function DashboardPage() {
   const [currentUserRole, setCurrentUserRole] = useState<string>('admin');
   const [activeTab, setActiveTab] = useState<string>('pos');
 
-  // Cargar el rol actual desde localStorage al montar el componente
   useEffect(() => {
     const savedUser = localStorage.getItem('pos_current_user');
     if (savedUser) {
@@ -17,12 +17,12 @@ export default function DashboardPage() {
         if (parsed && parsed.role) {
           setCurrentUserRole(parsed.role);
           
-          // Verificar si el rol actual tiene permiso para la pestaña activa, si no, redirigir a 'pos' o la primera disponible
           const tabPermissionMap: Record<string, string> = {
             pos: 'view_pos',
             inventory: 'view_inventory',
             receivable: 'view_receivable',
-            reports: 'view_reports'
+            reports: 'view_reports',
+            roles: 'manage_roles'
           };
 
           const requiredPerm = tabPermissionMap[activeTab] || 'view_pos';
@@ -48,14 +48,13 @@ export default function DashboardPage() {
           <p className="text-xs text-slate-400">Sistema comercial adaptado para comercios locales</p>
         </div>
 
-        {/* Zona Superior Derecha: Indicador de Tasa BCV y Selector de Roles */}
+        {/* Zona Superior Derecha: Tasa BCV y Selector de Roles */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg">
             <span className="text-slate-400">Tasa BCV (Bs/$):</span>
             <strong className="text-white font-mono">778,33</strong>
           </div>
           
-          {/* Componente Selector de Roles */}
           <RoleSelector onUserChange={(user: any) => {
             if (user && user.role) {
               setCurrentUserRole(user.role);
@@ -64,15 +63,13 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Menú de Navegación Dinámico según el Rol */}
+      {/* Menú de Navegación Dinámico */}
       <nav className="flex flex-wrap gap-2 bg-slate-900/60 p-2 rounded-xl border border-slate-800 items-center">
         {hasPermission(currentUserRole, 'view_pos') && (
           <button
             onClick={() => setActiveTab('pos')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'pos' 
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              activeTab === 'pos' ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             🛒 Caja POS
@@ -83,9 +80,7 @@ export default function DashboardPage() {
           <button
             onClick={() => setActiveTab('inventory')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'inventory' 
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              activeTab === 'inventory' ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             📦 Inventario
@@ -96,9 +91,7 @@ export default function DashboardPage() {
           <button
             onClick={() => setActiveTab('receivable')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'receivable' 
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              activeTab === 'receivable' ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             📋 Cuentas x Cobrar
@@ -109,12 +102,22 @@ export default function DashboardPage() {
           <button
             onClick={() => setActiveTab('reports')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'reports' 
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              activeTab === 'reports' ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             📊 Reportes Z
+          </button>
+        )}
+
+        {/* NUEVA PESTAÑA: Configuración de Roles y Personal */}
+        {hasPermission(currentUserRole, 'manage_roles') && (
+          <button
+            onClick={() => setActiveTab('roles')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'roles' ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            🛡️ Roles y Personal
           </button>
         )}
       </nav>
@@ -153,6 +156,10 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold mb-2">Reportes y Cierre de Caja (Z) Detallado</h2>
             <p className="text-sm text-slate-400 mb-4">Auditoría global de ingresos por método de pago y control de IVA.</p>
           </div>
+        )}
+
+        {activeTab === 'roles' && hasPermission(currentUserRole, 'manage_roles') && (
+          <RolesManagerModule />
         )}
 
       </section>
