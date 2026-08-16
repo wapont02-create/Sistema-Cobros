@@ -5,7 +5,6 @@ export const metadata: Metadata = {
   title: 'Sistema de Cobros POS',
   description: 'Punto de venta y control de inventario',
 }
-
 export default function RootLayout({
   children,
 }: {
