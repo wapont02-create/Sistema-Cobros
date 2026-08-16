@@ -1,5 +1,5 @@
-import { db } from "../../../db";
-import { products } from "../../../db/schema";
+import { db } from "../../db";
+import { products } from "../../db/schema";
 
 export default async function DashboardPage() {
   // Obtenemos los productos desde SQLite Cloud
