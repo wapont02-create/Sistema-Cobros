@@ -269,7 +269,7 @@ ${salesHistory.map(s => `[Ticket #${s.id}] - ${s.date} - Total: $${s.totalUSD.to
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col relative">
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
           <span className="text-xl font-black text-blue-400">⚡ POS Enterprise Venezuela</span>
