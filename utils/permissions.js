@@ -1,21 +1,8 @@
 // utils/permissions.js
-
 const PERMISSIONS = {
-  admin: [
-    'view_pos',            // Usar la caja
-    'view_inventory',      // Ver inventario
-    'edit_inventory',      // Crear, editar, eliminar productos
-    'view_reports',        // Ver reportes y cierre Z
-    'view_receivable',     // Cuentas por cobrar (Fiados)
-    'manage_roles'         // Gestionar personal
-  ],
-  cajero: [
-    'view_pos'             // Exclusivamente caja y cobros
-  ],
-  almacenista: [
-    'view_inventory',      // Ver inventario
-    'edit_inventory'       // Modificar stock y productos
-  ]
+  admin: ['view_pos', 'view_inventory', 'edit_inventory', 'view_reports', 'view_receivable', 'manage_roles'],
+  cajero: ['view_pos'],
+  almacenista: ['view_inventory', 'edit_inventory']
 };
 
 export function hasPermission(role, permission) {
