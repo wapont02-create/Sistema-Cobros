@@ -66,7 +66,7 @@ const INITIAL_PRODUCTS: Product[] = [
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
-  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'credits' | 'payables' | 'roles'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
   
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
@@ -139,8 +139,7 @@ export default function DashboardPOS() {
     const tabPermissionMap: Record<string, string> = {
       pos: 'view_pos',
       inventory: 'view_inventory',
-      credits: 'view_credits',
-      payables: 'view_payables',
+      accounts: 'view_credits',
       reports: 'view_reports',
       roles: 'manage_roles',
     };
@@ -149,7 +148,7 @@ export default function DashboardPOS() {
     if (requiredPermission && !userPermissions.includes(requiredPermission)) {
       const availableTab = Object.keys(tabPermissionMap).find(tab => 
         userPermissions.includes(tabPermissionMap[tab])
-      ) as 'pos' | 'inventory' | 'reports' | 'credits' | 'payables' | 'roles' | undefined;
+      ) as 'pos' | 'inventory' | 'reports' | 'accounts' | 'roles' | undefined;
 
       if (availableTab) {
         setActiveTab(availableTab);
@@ -441,16 +440,10 @@ RESUMEN GENERAL:
               📦 Inventario
             </button>
             <button 
-              onClick={() => setActiveTab('credits')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'credits' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              onClick={() => setActiveTab('accounts')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
-              📒 Cuentas x Cobrar
-            </button>
-            <button 
-              onClick={() => setActiveTab('payables')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'payables' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
-              📥 Cuentas x Pagar
+              📒 Cuentas (Cobrar/Pagar)
             </button>
             <button 
               onClick={() => setActiveTab('reports')}
@@ -892,184 +885,179 @@ RESUMEN GENERAL:
         </main>
       )}
 
-      {/* VISTA 3: CUENTAS POR COBRAR */}
-      {activeTab === 'credits' && (
-        <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
-          <div className="flex justify-between items-center">
+      {/* VISTA 3: MÓDULO UNIFICADO DE CUENTAS (COBRAR Y PAGAR) */}
+      {activeTab === 'accounts' && (
+        <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold">Módulo de Cuentas por Cobrar (Fiados)</h2>
-              <span className="text-sm text-slate-400">Control de créditos otorgados y estatus de cobro a clientes</span>
+              <h2 className="text-2xl font-bold">Módulo de Cuentas (Cobrar y Pagar)</h2>
+              <span className="text-sm text-slate-400">Gestión unificada de créditos a clientes (Fiados) y deudas con proveedores</span>
             </div>
-            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
-              <div className="text-xs text-slate-400">Total Pendiente:</div>
-              <div className="text-base font-black text-amber-400">${pendingCreditsUSD.toFixed(2)} <span className="text-xs text-emerald-400">(Bs. {pendingCreditsBs.toFixed(2)})</span></div>
+            <div className="flex gap-3">
+              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+                <div className="text-xs text-slate-400">Total x Cobrar:</div>
+                <div className="text-sm font-black text-amber-400">${pendingCreditsUSD.toFixed(2)}</div>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+                <div className="text-xs text-slate-400">Total x Pagar:</div>
+                <div className="text-sm font-black text-red-400">${pendingPayablesUSD.toFixed(2)}</div>
+              </div>
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-200">Listado de Créditos de Clientes</h3>
-            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-              {credits.length === 0 && (
-                <div className="text-center py-12 text-slate-500 text-sm">
-                  No hay cuentas por cobrar registradas.
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* COLUMNA IZQUIERDA: CUENTAS POR COBRAR (CLIENTES) */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                  <h3 className="text-lg font-bold text-amber-400">📒 Cuentas por Cobrar (Clientes)</h3>
+                  <span className="text-xs bg-amber-500/10 text-amber-400 font-bold px-2 py-1 rounded">
+                    Pendientes: ${pendingCreditsUSD.toFixed(2)}
+                  </span>
                 </div>
-              )}
-              {credits.map(credit => (
-                <div key={credit.id} className="bg-slate-950 border border-slate-800/80 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-base">{credit.clientName}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${credit.status === 'Pendiente' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                        {credit.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      Doc: <strong className="text-slate-300">{credit.clientDocument}</strong> • Tel: <strong className="text-slate-300">{credit.clientPhone}</strong> • Fecha: {credit.date}
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                    <div className="text-right">
-                      <div className="text-base font-bold text-amber-400">${credit.totalDebtUSD.toFixed(2)}</div>
-                      <div className="text-xs text-emerald-400">Bs. {credit.totalDebtBs.toFixed(2)}</div>
+                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                  {credits.length === 0 && (
+                    <div className="text-center py-12 text-slate-500 text-sm">
+                      No hay cuentas por cobrar registradas.
                     </div>
+                  )}
+                  {credits.map(credit => (
+                    <div key={credit.id} className="bg-slate-950 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">{credit.clientName}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${credit.status === 'Pendiente' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                            {credit.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Doc: <strong className="text-slate-300">{credit.clientDocument}</strong> • Tel: <strong className="text-slate-300">{credit.clientPhone}</strong>
+                        </div>
+                      </div>
 
-                    {credit.status === 'Pendiente' && (
-                      <button 
-                        onClick={() => payCredit(credit.id)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20"
-                      >
-                        Saldar Cuenta 💰
-                      </button>
-                    )}
-                  </div>
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-amber-400">${credit.totalDebtUSD.toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {credit.totalDebtBs.toFixed(2)}</div>
+                        </div>
+
+                        {credit.status === 'Pendiente' && (
+                          <button 
+                            onClick={() => payCredit(credit.id)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow"
+                          >
+                            Saldar 💰
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+            </div>
+
+            {/* COLUMNA DERECHA: CUENTAS POR PAGAR (PROVEEDORES) */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <h3 className="text-lg font-bold text-red-400">📥 Cuentas por Pagar (Proveedores)</h3>
+                  <span className="text-xs bg-red-500/10 text-red-400 font-bold px-2 py-1 rounded">
+                    Pendientes: ${pendingPayablesUSD.toFixed(2)}
+                  </span>
+                </div>
+
+                <form onSubmit={handleAddPayable} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <div className="text-xs font-bold text-blue-400">Registrar Nuevo Proveedor / Deuda</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input 
+                      type="text" required
+                      value={newProviderName}
+                      onChange={(e) => setNewProviderName(e.target.value)}
+                      placeholder="Nombre Proveedor *"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                    <input 
+                      type="text"
+                      value={newProviderDoc}
+                      onChange={(e) => setNewProviderDoc(e.target.value)}
+                      placeholder="RIF / Cédula"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input 
+                      type="text"
+                      value={newPayableDesc}
+                      onChange={(e) => setNewPayableDesc(e.target.value)}
+                      placeholder="Concepto / Factura"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none sm:col-span-1"
+                    />
+                    <input 
+                      type="number" step="0.01" required
+                      value={newPayableAmountUSD}
+                      onChange={(e) => setNewPayableAmountUSD(e.target.value)}
+                      placeholder="Monto USD ($) *"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                    <input 
+                      type="text"
+                      value={newDueDate}
+                      onChange={(e) => setNewDueDate(e.target.value)}
+                      placeholder="Fecha Límite"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                  </div>
+                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-xs transition">
+                    Guardar Cuenta x Pagar 📥
+                  </button>
+                </form>
+
+                <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+                  {payables.length === 0 && (
+                    <div className="text-center py-6 text-slate-500 text-xs">
+                      No hay cuentas por pagar registradas.
+                    </div>
+                  )}
+                  {payables.map(payable => (
+                    <div key={payable.id} className="bg-slate-950 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">{payable.providerName}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${payable.status === 'Pendiente' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                            {payable.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Concepto: <strong className="text-slate-300">{payable.description}</strong> • Vence: <strong className="text-amber-400">{payable.dueDate}</strong>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-red-400">${payable.totalDebtUSD.toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {payable.totalDebtBs.toFixed(2)}</div>
+                        </div>
+
+                        {payable.status === 'Pendiente' && (
+                          <button 
+                            onClick={() => payPayable(payable.id)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow"
+                          >
+                            Pagar ✅
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </main>
       )}
 
-      {/* VISTA 4: MÓDULO DE CUENTAS POR PAGAR */}
-      {activeTab === 'payables' && (
-        <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold">Módulo de Cuentas por Pagar (Proveedores)</h2>
-              <span className="text-sm text-slate-400">Control de deudas con proveedores de mercancía, servicios y alquileres</span>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
-              <div className="text-xs text-slate-400">Deuda Total Proveedores:</div>
-              <div className="text-base font-black text-red-400">${pendingPayablesUSD.toFixed(2)} <span className="text-xs text-emerald-400">(Bs. {pendingPayablesBs.toFixed(2)})</span></div>
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
-            <h3 className="text-lg font-semibold text-blue-400">Registrar Nueva Deuda / Proveedor</h3>
-            <form onSubmit={handleAddPayable} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Nombre Proveedor *</label>
-                <input 
-                  type="text" required
-                  value={newProviderName}
-                  onChange={(e) => setNewProviderName(e.target.value)}
-                  placeholder="Ej. Distribuidora Mayorista"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">RIF / Cédula</label>
-                <input 
-                  type="text"
-                  value={newProviderDoc}
-                  onChange={(e) => setNewProviderDoc(e.target.value)}
-                  placeholder="J-12345678-9"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Concepto / Descripción</label>
-                <input 
-                  type="text"
-                  value={newPayableDesc}
-                  onChange={(e) => setNewPayableDesc(e.target.value)}
-                  placeholder="Ej. Factura #4589 por insumos"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Monto en USD ($) *</label>
-                <input 
-                  type="number" step="0.01" required
-                  value={newPayableAmountUSD}
-                  onChange={(e) => setNewPayableAmountUSD(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Fecha Límite Pago</label>
-                <input 
-                  type="text"
-                  value={newDueDate}
-                  onChange={(e) => setNewDueDate(e.target.value)}
-                  placeholder="Ej. 30/08/2026"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div className="sm:col-span-2 lg:col-span-5">
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-blue-600/30">
-                  Registrar Cuenta por Pagar 📥
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-200">Listado de Proveedores y Compromisos</h3>
-            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
-              {payables.length === 0 && (
-                <div className="text-center py-12 text-slate-500 text-sm">
-                  No hay cuentas por pagar registradas.
-                </div>
-              )}
-              {payables.map(payable => (
-                <div key={payable.id} className="bg-slate-950 border border-slate-800/80 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-base">{payable.providerName}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${payable.status === 'Pendiente' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                        {payable.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      RIF: <strong className="text-slate-300">{payable.providerDocument}</strong> • Concepto: <strong className="text-slate-300">{payable.description}</strong> • Vence: <strong className="text-amber-400">{payable.dueDate}</strong>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                    <div className="text-right">
-                      <div className="text-base font-bold text-red-400">${payable.totalDebtUSD.toFixed(2)}</div>
-                      <div className="text-xs text-emerald-400">Bs. {payable.totalDebtBs.toFixed(2)}</div>
-                    </div>
-
-                    {payable.status === 'Pendiente' && (
-                      <button 
-                        onClick={() => payPayable(payable.id)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20"
-                      >
-                        Registrar Pago ✅
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </main>
-      )}
-
-      {/* VISTA 5: REPORTES Y CIERRE DE CAJA Z */}
+      {/* VISTA 4: REPORTES Y CIERRE DE CAJA Z */}
       {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
@@ -1135,7 +1123,7 @@ RESUMEN GENERAL:
         </main>
       )}
 
-      {/* VISTA 6: MÓDULO DE ROLES Y PERSONAL */}
+      {/* VISTA 5: MÓDULO DE ROLES Y PERSONAL */}
       {activeTab === 'roles' && (
         <RolesManagerModule />
       )}
