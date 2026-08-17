@@ -101,11 +101,15 @@ export default function DashboardPOS() {
     return () => clearInterval(interval);
   }, []);
 
-  const currentUserObj = usersList.find(u => u.username === currentUsername) || usersList[0];
-  const currentRoleObj = rolesList.find(r => r.id.toLowerCase() === currentUserObj?.roleId?.toLowerCase()) || rolesList[0];
+  // Búsqueda flexible para evitar que se quede atascado en Administrador por diferencias de mayúsculas/minúsculas
+  const currentUserObj = usersList.find(u => u.username.toLowerCase() === currentUsername.toLowerCase()) || usersList[0];
+  const currentRoleObj = rolesList.find(r => 
+    r.id.toLowerCase() === currentUserObj?.roleId?.toLowerCase() ||
+    r.name.toLowerCase() === currentUserObj?.roleId?.toLowerCase()
+  ) || rolesList[0];
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
-  // CORRECCIÓN CLAVE: Si el usuario cambia de rol y la pestaña activa ya no está permitida, lo reubicamos automáticamente
+  // Validación automática de pestaña si el rol seleccionado no tiene permisos para verla
   useEffect(() => {
     const tabPermissionMap: Record<string, string> = {
       pos: 'view_pos',
@@ -117,7 +121,6 @@ export default function DashboardPOS() {
 
     const requiredPermission = tabPermissionMap[activeTab];
     if (requiredPermission && !userPermissions.includes(requiredPermission)) {
-      // Buscar la primera pestaña disponible para este rol
       const availableTab = Object.keys(tabPermissionMap).find(tab => 
         userPermissions.includes(tabPermissionMap[tab])
       ) as 'pos' | 'inventory' | 'reports' | 'credits' | 'roles' | undefined;
@@ -432,7 +435,10 @@ RESUMEN GENERAL:
                 className="bg-slate-900 text-xs text-white border border-slate-700 rounded px-2 py-1 font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {usersList.map(u => {
-                  const roleOfUser = rolesList.find(r => r.id.toLowerCase() === u.roleId?.toLowerCase());
+                  const roleOfUser = rolesList.find(r => 
+                    r.id.toLowerCase() === u.roleId?.toLowerCase() ||
+                    r.name.toLowerCase() === u.roleId?.toLowerCase()
+                  );
                   return (
                     <option key={u.id} value={u.username}>
                       {u.name} ({roleOfUser?.name || u.roleId})
