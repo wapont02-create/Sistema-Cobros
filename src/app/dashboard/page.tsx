@@ -105,7 +105,9 @@ export default function DashboardPOS() {
   }, []);
 
   const currentUserObj = usersList.find(u => u.username === currentUsername) || usersList[0];
-  const currentRoleObj = rolesList.find(r => r.id === currentUserObj?.roleId) || rolesList[0];
+  
+  // CORRECCIÓN: Búsqueda de rol robusta ignorando mayúsculas/minúsculas
+  const currentRoleObj = rolesList.find(r => r.id.toLowerCase() === currentUserObj?.roleId?.toLowerCase()) || rolesList[0];
 
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
@@ -433,7 +435,8 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
                 className="bg-slate-900 text-xs text-white border border-slate-700 rounded px-2 py-1 font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {usersList.map(u => {
-                  const roleOfUser = rolesList.find(r => r.id === u.roleId);
+                  // CORRECCIÓN: Búsqueda segura del rol por cada usuario en el select
+                  const roleOfUser = rolesList.find(r => r.id.toLowerCase() === u.roleId?.toLowerCase());
                   return (
                     <option key={u.id} value={u.username}>
                       {u.name} ({roleOfUser?.name || u.roleId})
