@@ -136,21 +136,24 @@ export default function DashboardPOS() {
   const [newDueDate, setNewDueDate] = useState('');
 
   useEffect(() => {
-    const tabPermissionMap: Record<string, string> = {
-      pos: 'view_pos',
-      inventory: 'view_inventory',
-      accounts: 'view_credits',
-      reports: 'view_reports',
-      roles: 'manage_roles',
+    const tabPermissionMap: Record<string, string[]> = {
+      pos: ['view_pos'],
+      inventory: ['view_inventory'],
+      accounts: ['view_credits', 'view_payables', 'manage_roles'], // Flexible para permitir acceso si cuenta con cualquiera de estos
+      reports: ['view_reports'],
+      roles: ['manage_roles'],
     };
 
-    const requiredPermission = tabPermissionMap[activeTab];
-    if (requiredPermission && !userPermissions.includes(requiredPermission)) {
-      const availableTab = Object.keys(tabPermissionMap).find(tab => 
-        userPermissions.includes(tabPermissionMap[tab])
-      ) as 'pos' | 'inventory' | 'reports' | 'accounts' | 'roles' | undefined;
+    const requiredPermissions = tabPermissionMap[activeTab] || [];
+    const hasAccess = requiredPermissions.length === 0 || requiredPermissions.some(p => userPermissions.includes(p));
 
-      if (availableTab) {
+    if (!hasAccess) {
+      const availableTab = Object.keys(tabPermissionMap).find(tab => {
+        const perms = tabPermissionMap[tab];
+        return perms.some(p => userPermissions.includes(p));
+      }) as 'pos' | 'inventory' | 'reports' | 'accounts' | 'roles' | undefined;
+
+      if (availableTab && availableTab !== activeTab) {
         setActiveTab(availableTab);
       }
     }
