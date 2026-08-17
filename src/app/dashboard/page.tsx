@@ -88,14 +88,11 @@ export default function DashboardPOS() {
     return 776.00;
   });
 
-  // Estado para simular perfil de usuario actual y control de permisos
   const [currentUsername, setCurrentUsername] = useState<string>('admin');
 
-  // Cargamos roles y usuarios de forma reactiva (para que detecte cambios si se actualizan en localStorage desde el módulo de roles)
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
-  // Efecto para actualizar la lista de usuarios y roles si cambian en el módulo de personal
   useEffect(() => {
     const interval = setInterval(() => {
       setRolesList(getRoles());
@@ -105,18 +102,37 @@ export default function DashboardPOS() {
   }, []);
 
   const currentUserObj = usersList.find(u => u.username === currentUsername) || usersList[0];
-  
-  // CORRECCIÓN: Búsqueda de rol robusta ignorando mayúsculas/minúsculas
   const currentRoleObj = rolesList.find(r => r.id.toLowerCase() === currentUserObj?.roleId?.toLowerCase()) || rolesList[0];
-
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
+
+  // CORRECCIÓN CLAVE: Si el usuario cambia de rol y la pestaña activa ya no está permitida, lo reubicamos automáticamente
+  useEffect(() => {
+    const tabPermissionMap: Record<string, string> = {
+      pos: 'view_pos',
+      inventory: 'view_inventory',
+      credits: 'view_credits',
+      reports: 'view_reports',
+      roles: 'manage_roles',
+    };
+
+    const requiredPermission = tabPermissionMap[activeTab];
+    if (requiredPermission && !userPermissions.includes(requiredPermission)) {
+      // Buscar la primera pestaña disponible para este rol
+      const availableTab = Object.keys(tabPermissionMap).find(tab => 
+        userPermissions.includes(tabPermissionMap[tab])
+      ) as 'pos' | 'inventory' | 'reports' | 'credits' | 'roles' | undefined;
+
+      if (availableTab) {
+        setActiveTab(availableTab);
+      }
+    }
+  }, [currentUsername, currentRoleObj, userPermissions, activeTab]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [cashGivenUSD, setCashGivenUSD] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('Efectivo USD');
 
-  // Datos para crédito / cliente
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientDocument, setClientDocument] = useState('');
@@ -292,7 +308,6 @@ export default function DashboardPOS() {
   };
 
   const statsEfectivoUSD = getMethodStats('Efectivo USD');
-  const statsEfectivoBs = getMethodStats('Efectivo Bs');
   const statsPagoMovil = getMethodStats('Pago Móvil');
   const statsZelle = getMethodStats('Zelle');
   const statsBinance = getMethodStats('Binance Pay');
@@ -318,23 +333,6 @@ RESUMEN GENERAL:
 - Ingresos Totales (Bs.): Bs. ${totalSalesRevenueBs.toFixed(2)}
 - IVA Total Recaudado (16%): $${totalTaxesCollected.toFixed(2)}
 - Cuentas por Cobrar Pendientes: $${pendingCreditsUSD.toFixed(2)}
-----------------------------------------
-DESGLOSE POR MÉTODO DE PAGO EN CAJA:
-1. Efectivo USD ($): 
-   - Transacciones: ${statsEfectivoUSD.count}
-   - Monto: $${statsEfectivoUSD.totalUSD.toFixed(2)}
-2. Pago Móvil (Bs.): 
-   - Transacciones: ${statsPagoMovil.count}
-   - Monto: Bs. ${statsPagoMovil.totalBs.toFixed(2)}
-3. Zelle ($): 
-   - Transacciones: ${statsZelle.count}
-   - Monto: $${statsZelle.totalUSD.toFixed(2)}
-4. Binance Pay (USDT): 
-   - Transacciones: ${statsBinance.count}
-   - Monto: $${statsBinance.totalUSD.toFixed(2)}
-5. Crédito / Fiado: 
-   - Transacciones: ${statsCredito.count}
-   - Monto: $${statsCredito.totalUSD.toFixed(2)}
 ----------------------------------------
     `.trim();
 
@@ -430,12 +428,10 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
                 value={currentUsername}
                 onChange={(e) => {
                   setCurrentUsername(e.target.value);
-                  setActiveTab('pos'); // Al cambiar de perfil, aseguramos que vuelva a POS o pestaña por defecto
                 }}
                 className="bg-slate-900 text-xs text-white border border-slate-700 rounded px-2 py-1 font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {usersList.map(u => {
-                  // CORRECCIÓN: Búsqueda segura del rol por cada usuario en el select
                   const roleOfUser = rolesList.find(r => r.id.toLowerCase() === u.roleId?.toLowerCase());
                   return (
                     <option key={u.id} value={u.username}>
@@ -450,7 +446,7 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
       </header>
 
       {/* VISTA 1: CAJA POS */}
-      {activeTab === 'pos' && (
+      {activeTab === 'pos' && userPermissions.includes('view_pos') && (
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
           <div className="lg:col-span-7 flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -632,7 +628,6 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
                   <option value="Pago Móvil">📱 Pago Móvil (Bs.)</option>
                   <option value="Zelle">🌐 Zelle ($)</option>
                   <option value="Binance Pay">🪙 Binance Pay (USDT)</option>
-                  <option value="Efectivo Bs">💵 Efectivo Bolívares (Bs.)</option>
                   <option value="Crédito / Fiado">📒 Crédito / Fiado (Cuentas x Cobrar)</option>
                 </select>
               </div>
@@ -675,7 +670,7 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido / Referencia ($ o Bs)</label>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido ($)</label>
                   <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
                     <input 
                       type="number" 
@@ -713,7 +708,7 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
       )}
 
       {/* VISTA 2: INVENTARIO */}
-      {activeTab === 'inventory' && (
+      {activeTab === 'inventory' && userPermissions.includes('view_inventory') && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
@@ -835,8 +830,8 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
         </main>
       )}
 
-      {/* VISTA 3: CUENTAS POR COBRAR (FIADOS / APARTADOS) */}
-      {activeTab === 'credits' && (
+      {/* VISTA 3: CUENTAS POR COBRAR */}
+      {activeTab === 'credits' && userPermissions.includes('view_credits') && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
@@ -894,7 +889,7 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
       )}
 
       {/* VISTA 4: REPORTES Y CIERRE DE CAJA Z */}
-      {activeTab === 'reports' && (
+      {activeTab === 'reports' && userPermissions.includes('view_reports') && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
@@ -960,7 +955,7 @@ DESGLOSE POR MÉTODO DE PAGO EN CAJA:
       )}
 
       {/* VISTA 5: MÓDULO DE ROLES Y PERSONAL */}
-      {activeTab === 'roles' && (
+      {activeTab === 'roles' && userPermissions.includes('manage_roles') && (
         <RolesManagerModule />
       )}
     </div>
