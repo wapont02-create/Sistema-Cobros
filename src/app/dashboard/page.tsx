@@ -43,6 +43,18 @@ type CreditAccount = {
   saleId: number;
 };
 
+type PayableAccount = {
+  id: number;
+  providerName: string;
+  providerDocument: string;
+  description: string;
+  totalDebtUSD: number;
+  totalDebtBs: number;
+  dueDate: string;
+  date: string;
+  status: 'Pendiente' | 'Pagado';
+};
+
 const INITIAL_PRODUCTS: Product[] = [
   { id: 1, name: 'Café Americano', costPrice: 1.20, price: 2.50, category: 'Bebidas', taxable: true, stock: 45 },
   { id: 2, name: 'Tequeños (6 unid.)', costPrice: 2.50, price: 5.00, category: 'Pasapalos', taxable: true, stock: 20 },
@@ -54,7 +66,7 @@ const INITIAL_PRODUCTS: Product[] = [
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
-  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'credits' | 'roles'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'credits' | 'payables' | 'roles'>('pos');
   
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
@@ -75,6 +87,14 @@ export default function DashboardPOS() {
   const [credits, setCredits] = useState<CreditAccount[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('pos_credits');
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
+
+  const [payables, setPayables] = useState<PayableAccount[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pos_payables');
       if (saved) return JSON.parse(saved);
     }
     return [];
@@ -101,7 +121,6 @@ export default function DashboardPOS() {
     return () => clearInterval(interval);
   }, []);
 
-  // Búsqueda flexible para evitar que se quede atascado en Administrador por diferencias de mayúsculas/minúsculas
   const currentUserObj = usersList.find(u => u.username.toLowerCase() === currentUsername.toLowerCase()) || usersList[0];
   const currentRoleObj = rolesList.find(r => 
     r.id.toLowerCase() === currentUserObj?.roleId?.toLowerCase() ||
@@ -109,12 +128,19 @@ export default function DashboardPOS() {
   ) || rolesList[0];
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
-  // Validación automática de pestaña si el rol seleccionado no tiene permisos para verla
+  // Estados para nuevo proveedor a pagar
+  const [newProviderName, setNewProviderName] = useState('');
+  const [newProviderDoc, setNewProviderDoc] = useState('');
+  const [newPayableDesc, setNewPayableDesc] = useState('');
+  const [newPayableAmountUSD, setNewPayableAmountUSD] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
+
   useEffect(() => {
     const tabPermissionMap: Record<string, string> = {
       pos: 'view_pos',
       inventory: 'view_inventory',
       credits: 'view_credits',
+      payables: 'view_payables',
       reports: 'view_reports',
       roles: 'manage_roles',
     };
@@ -123,7 +149,7 @@ export default function DashboardPOS() {
     if (requiredPermission && !userPermissions.includes(requiredPermission)) {
       const availableTab = Object.keys(tabPermissionMap).find(tab => 
         userPermissions.includes(tabPermissionMap[tab])
-      ) as 'pos' | 'inventory' | 'reports' | 'credits' | 'roles' | undefined;
+      ) as 'pos' | 'inventory' | 'reports' | 'credits' | 'payables' | 'roles' | undefined;
 
       if (availableTab) {
         setActiveTab(availableTab);
@@ -161,6 +187,10 @@ export default function DashboardPOS() {
   useEffect(() => {
     localStorage.setItem('pos_credits', JSON.stringify(credits));
   }, [credits]);
+
+  useEffect(() => {
+    localStorage.setItem('pos_payables', JSON.stringify(payables));
+  }, [payables]);
 
   useEffect(() => {
     localStorage.setItem('pos_bcv', exchangeRate.toString());
@@ -302,6 +332,47 @@ export default function DashboardPOS() {
     alert('¡Cuenta por cobrar saldada con éxito!');
   };
 
+  const handleAddPayable = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProviderName || !newPayableAmountUSD) return;
+    const amountUSD = parseFloat(newPayableAmountUSD) || 0;
+
+    const newPayable: PayableAccount = {
+      id: Date.now(),
+      providerName: newProviderName,
+      providerDocument: newProviderDoc || 'J-00000000-0',
+      description: newPayableDesc || 'Compra de mercancía / Insumos',
+      totalDebtUSD: amountUSD,
+      totalDebtBs: amountUSD * exchangeRate,
+      dueDate: newDueDate || 'Sin fecha límite',
+      date: new Date().toLocaleDateString(),
+      status: 'Pendiente',
+    };
+
+    setPayables(prev => [newPayable, ...prev]);
+    setNewProviderName('');
+    setNewProviderDoc('');
+    setNewPayableDesc('');
+    setNewPayableAmountUSD('');
+    setNewDueDate('');
+    alert('¡Cuenta por pagar registrada con éxito!');
+  };
+
+  const payPayable = (payableId: number) => {
+    setPayables(prev => prev.map(p => p.id === payableId ? { ...p, status: 'Pagado', totalDebtUSD: 0, totalDebtBs: 0 } : p));
+    alert('¡Cuenta por pagar saldada con éxito!');
+  };
+
+  const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtUSD, 0);
+  const pendingCreditsBs = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtBs, 0);
+
+  const pendingPayablesUSD = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + p.totalDebtUSD, 0);
+  const pendingPayablesBs = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + p.totalDebtBs, 0);
+
+  const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
+  const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
+  const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
+
   const getMethodStats = (method: PaymentMethodType) => {
     const filtered = salesHistory.filter(s => s.paymentMethod === method);
     const count = filtered.length;
@@ -315,12 +386,6 @@ export default function DashboardPOS() {
   const statsZelle = getMethodStats('Zelle');
   const statsBinance = getMethodStats('Binance Pay');
   const statsCredito = getMethodStats('Crédito / Fiado');
-
-  const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
-  const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
-  const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
-  const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtUSD, 0);
-  const pendingCreditsBs = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtBs, 0);
 
   const downloadReportZ = () => {
     const reportContent = `
@@ -336,6 +401,7 @@ RESUMEN GENERAL:
 - Ingresos Totales (Bs.): Bs. ${totalSalesRevenueBs.toFixed(2)}
 - IVA Total Recaudado (16%): $${totalTaxesCollected.toFixed(2)}
 - Cuentas por Cobrar Pendientes: $${pendingCreditsUSD.toFixed(2)}
+- Cuentas por Pagar Pendientes: $${pendingPayablesUSD.toFixed(2)}
 ----------------------------------------
     `.trim();
 
@@ -386,6 +452,14 @@ RESUMEN GENERAL:
                 📒 Cuentas x Cobrar
               </button>
             )}
+            {userPermissions.includes('view_payables') && (
+              <button 
+                onClick={() => setActiveTab('payables')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'payables' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                📥 Cuentas x Pagar
+              </button>
+            )}
             {userPermissions.includes('view_reports') && (
               <button 
                 onClick={() => setActiveTab('reports')}
@@ -429,9 +503,7 @@ RESUMEN GENERAL:
               <span className="text-[10px] text-slate-400 hidden sm:inline">Cambiar Perfil:</span>
               <select 
                 value={currentUsername}
-                onChange={(e) => {
-                  setCurrentUsername(e.target.value);
-                }}
+                onChange={(e) => setCurrentUsername(e.target.value)}
                 className="bg-slate-900 text-xs text-white border border-slate-700 rounded px-2 py-1 font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {usersList.map(u => {
@@ -894,13 +966,132 @@ RESUMEN GENERAL:
         </main>
       )}
 
-      {/* VISTA 4: REPORTES Y CIERRE DE CAJA Z */}
+      {/* VISTA 4: NUEVO MÓDULO DE CUENTAS POR PAGAR */}
+      {activeTab === 'payables' && userPermissions.includes('view_payables') && (
+        <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold">Módulo de Cuentas por Pagar (Proveedores)</h2>
+              <span className="text-sm text-slate-400">Control de deudas con proveedores de mercancía, servicios y alquileres</span>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+              <div className="text-xs text-slate-400">Deuda Total Proveedores:</div>
+              <div className="text-base font-black text-red-400">${pendingPayablesUSD.toFixed(2)} <span className="text-xs text-emerald-400">(Bs. {pendingPayablesBs.toFixed(2)})</span></div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
+            <h3 className="text-lg font-semibold text-blue-400">Registrar Nueva Deuda / Proveedor</h3>
+            <form onSubmit={handleAddPayable} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Nombre Proveedor *</label>
+                <input 
+                  type="text" required
+                  value={newProviderName}
+                  onChange={(e) => setNewProviderName(e.target.value)}
+                  placeholder="Ej. Distribuidora Mayorista"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">RIF / Cédula</label>
+                <input 
+                  type="text"
+                  value={newProviderDoc}
+                  onChange={(e) => setNewProviderDoc(e.target.value)}
+                  placeholder="J-12345678-9"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Concepto / Descripción</label>
+                <input 
+                  type="text"
+                  value={newPayableDesc}
+                  onChange={(e) => setNewPayableDesc(e.target.value)}
+                  placeholder="Ej. Factura #4589 por insumos"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Monto en USD ($) *</label>
+                <input 
+                  type="number" step="0.01" required
+                  value={newPayableAmountUSD}
+                  onChange={(e) => setNewPayableAmountUSD(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Fecha Límite Pago</label>
+                <input 
+                  type="text"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                  placeholder="Ej. 30/08/2026"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-5">
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-blue-600/30">
+                  Registrar Cuenta por Pagar 📥
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-200">Listado de Proveedores y Compromisos</h3>
+            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+              {payables.length === 0 && (
+                <div className="text-center py-12 text-slate-500 text-sm">
+                  No hay cuentas por pagar registradas.
+                </div>
+              )}
+              {payables.map(payable => (
+                <div key={payable.id} className="bg-slate-950 border border-slate-800/80 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-base">{payable.providerName}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${payable.status === 'Pendiente' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                        {payable.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      RIF: <strong className="text-slate-300">{payable.providerDocument}</strong> • Concepto: <strong className="text-slate-300">{payable.description}</strong> • Vence: <strong className="text-amber-400">{payable.dueDate}</strong>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="text-right">
+                      <div className="text-base font-bold text-red-400">${payable.totalDebtUSD.toFixed(2)}</div>
+                      <div className="text-xs text-emerald-400">Bs. {payable.totalDebtBs.toFixed(2)}</div>
+                    </div>
+
+                    {payable.status === 'Pendiente' && (
+                      <button 
+                        onClick={() => payPayable(payable.id)}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20"
+                      >
+                        Registrar Pago ✅
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* VISTA 5: REPORTES Y CIERRE DE CAJA Z */}
       {activeTab === 'reports' && userPermissions.includes('view_reports') && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z) Detallado</h2>
-              <span className="text-sm text-slate-400">Auditoría por método de pago</span>
+              <span className="text-sm text-slate-400">Auditoría por método de pago y flujos de caja</span>
             </div>
             {salesHistory.length > 0 && (
               <button 
@@ -919,14 +1110,14 @@ RESUMEN GENERAL:
               <div className="text-xs text-emerald-400 mt-1 font-semibold">Bs. {totalSalesRevenueBs.toFixed(2)}</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 mb-1">IVA Total Recaudado (16%)</div>
-              <div className="text-2xl font-black text-amber-400">${totalTaxesCollected.toFixed(2)}</div>
-              <div className="text-xs text-slate-500 mt-1">Impuesto fiscal de ley</div>
+              <div className="text-xs text-slate-400 mb-1">Cuentas x Cobrar Pendientes</div>
+              <div className="text-2xl font-black text-amber-400">${pendingCreditsUSD.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">Fiados a clientes</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 mb-1">Total Transacciones</div>
-              <div className="text-2xl font-black text-emerald-400">{salesHistory.length}</div>
-              <div className="text-xs text-slate-500 mt-1">Tickets procesados</div>
+              <div className="text-xs text-slate-400 mb-1">Cuentas x Pagar (Proveedores)</div>
+              <div className="text-2xl font-black text-red-400">${pendingPayablesUSD.toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">Deudas pendientes</div>
             </div>
           </div>
 
@@ -960,7 +1151,7 @@ RESUMEN GENERAL:
         </main>
       )}
 
-      {/* VISTA 5: MÓDULO DE ROLES Y PERSONAL */}
+      {/* VISTA 6: MÓDULO DE ROLES Y PERSONAL */}
       {activeTab === 'roles' && userPermissions.includes('manage_roles') && (
         <RolesManagerModule />
       )}
