@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import RolesManagerModule from '@/components/RolesManagerModule';
-import { getRoles, getUsers } from '@/utils/rolesManager';
+import RolesManagerModule from '../../components/RolesManagerModule';
+import { getRoles, getUsers } from '../../utils/rolesManager';
 
 type Product = { 
   id: number; 
