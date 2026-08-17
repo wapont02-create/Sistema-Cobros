@@ -113,6 +113,11 @@ export default function DashboardPOS() {
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
+  // Estado para la reposición de inventario
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
+  const [restockAmount, setRestockAmount] = useState('');
+
   useEffect(() => {
     const interval = setInterval(() => {
       setRolesList(getRoles());
@@ -128,7 +133,6 @@ export default function DashboardPOS() {
   ) || rolesList[0];
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
-  // Estados para nuevo proveedor a pagar
   const [newProviderName, setNewProviderName] = useState('');
   const [newProviderDoc, setNewProviderDoc] = useState('');
   const [newPayableDesc, setNewPayableDesc] = useState('');
@@ -139,7 +143,7 @@ export default function DashboardPOS() {
     const tabPermissionMap: Record<string, string[]> = {
       pos: ['view_pos'],
       inventory: ['view_inventory'],
-      accounts: ['view_credits', 'view_payables', 'manage_roles'], // Flexible para permitir acceso si cuenta con cualquiera de estos
+      accounts: ['view_credits', 'view_payables', 'manage_roles'],
       reports: ['view_reports'],
       roles: ['manage_roles'],
     };
@@ -261,6 +265,26 @@ export default function DashboardPOS() {
     setProducts(prev => prev.filter(p => p.id !== id));
   };
 
+  // Función para reponer stock
+  const handleRestockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProductForRestock || !restockAmount) return;
+    const amount = parseInt(restockAmount) || 0;
+    if (amount <= 0) return;
+
+    setProducts(prev => prev.map(p => {
+      if (p.id === selectedProductForRestock.id) {
+        return { ...p, stock: p.stock + amount };
+      }
+      return p;
+    }));
+
+    alert(`¡Se han añadido ${amount} unidades a "${selectedProductForRestock.name}" con éxito!`);
+    setIsRestockModalOpen(false);
+    setSelectedProductForRestock(null);
+    setRestockAmount('');
+  };
+
   const subtotalUSD = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const totalIvaUSD = cart.reduce((sum, item) => item.taxable ? sum + (item.price * item.quantity * IVA_RATE) : sum, 0);
   const totalUSD = subtotalUSD + totalIvaUSD;
@@ -366,10 +390,7 @@ export default function DashboardPOS() {
   };
 
   const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtUSD, 0);
-  const pendingCreditsBs = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtBs, 0);
-
   const pendingPayablesUSD = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + p.totalDebtUSD, 0);
-  const pendingPayablesBs = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + p.totalDebtBs, 0);
 
   const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
   const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
@@ -769,6 +790,58 @@ RESUMEN GENERAL:
         </div>
       )}
 
+      {/* MODAL PARA REPONER STOCK */}
+      {isRestockModalOpen && selectedProductForRestock && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white">Reponer Inventario</h3>
+              <button 
+                onClick={() => { setIsRestockModalOpen(false); setSelectedProductForRestock(null); }}
+                className="text-slate-400 hover:text-white bg-slate-800/60 p-2 rounded-xl text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
+              <div className="text-slate-400">Producto:</div>
+              <div className="font-bold text-blue-400 text-sm">{selectedProductForRestock.name}</div>
+              <div className="text-slate-400 pt-1">Stock Actual: <strong className="text-white">{selectedProductForRestock.stock} unidades</strong></div>
+            </div>
+
+            <form onSubmit={handleRestockSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Cantidad a Agregar *</label>
+                <input 
+                  type="number" min="1" required
+                  value={restockAmount}
+                  onChange={(e) => setRestockAmount(e.target.value)}
+                  placeholder="Ej. 24"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-bold"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => { setIsRestockModalOpen(false); setSelectedProductForRestock(null); }}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/30"
+                >
+                  Sumar Stock 📦
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* VISTA 2: INVENTARIO */}
       {activeTab === 'inventory' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
@@ -876,8 +949,19 @@ RESUMEN GENERAL:
                       <td className="p-4 text-emerald-400 font-semibold">{margin}%</td>
                       <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded ${prod.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>{prod.taxable ? 'Gravado (16%)' : 'Exento'}</span></td>
                       <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${prod.stock <= 5 ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-200'}`}>{prod.stock} un.</span></td>
-                      <td className="p-4 text-right">
-                        <button onClick={() => deleteProduct(prod.id)} className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition">Eliminar</button>
+                      <td className="p-4 text-right space-x-2">
+                        <button 
+                          onClick={() => { setSelectedProductForRestock(prod); setIsRestockModalOpen(true); }} 
+                          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                        >
+                          + Stock
+                        </button>
+                        <button 
+                          onClick={() => deleteProduct(prod.id)} 
+                          className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                        >
+                          Eliminar
+                        </button>
                       </td>
                     </tr>
                   );
