@@ -428,54 +428,42 @@ RESUMEN GENERAL:
         <div className="flex items-center gap-4">
           <span className="text-xl font-black text-blue-400">⚡ POS Enterprise Venezuela</span>
           <div className="flex flex-wrap bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
-            {userPermissions.includes('view_pos') && (
-              <button 
-                onClick={() => setActiveTab('pos')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'pos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                🛒 Caja POS
-              </button>
-            )}
-            {userPermissions.includes('view_inventory') && (
-              <button 
-                onClick={() => setActiveTab('inventory')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                📦 Inventario
-              </button>
-            )}
-            {userPermissions.includes('view_credits') && (
-              <button 
-                onClick={() => setActiveTab('credits')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'credits' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                📒 Cuentas x Cobrar
-              </button>
-            )}
-            {userPermissions.includes('view_payables') && (
-              <button 
-                onClick={() => setActiveTab('payables')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'payables' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                📥 Cuentas x Pagar
-              </button>
-            )}
-            {userPermissions.includes('view_reports') && (
-              <button 
-                onClick={() => setActiveTab('reports')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                📊 Reportes Z
-              </button>
-            )}
-            {userPermissions.includes('manage_roles') && (
-              <button 
-                onClick={() => setActiveTab('roles')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'roles' ? 'bg-cyan-600 text-white' : 'text-cyan-400 hover:text-white bg-cyan-950/40 border border-cyan-800/50'}`}
-              >
-                🛡️ Roles y Personal
-              </button>
-            )}
+            <button 
+              onClick={() => setActiveTab('pos')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'pos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              🛒 Caja POS
+            </button>
+            <button 
+              onClick={() => setActiveTab('inventory')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              📦 Inventario
+            </button>
+            <button 
+              onClick={() => setActiveTab('credits')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'credits' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              📒 Cuentas x Cobrar
+            </button>
+            <button 
+              onClick={() => setActiveTab('payables')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'payables' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              📥 Cuentas x Pagar
+            </button>
+            <button 
+              onClick={() => setActiveTab('reports')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              📊 Reportes Z
+            </button>
+            <button 
+              onClick={() => setActiveTab('roles')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'roles' ? 'bg-cyan-600 text-white' : 'text-cyan-400 hover:text-white bg-cyan-950/40 border border-cyan-800/50'}`}
+            >
+              🛡️ Roles y Personal
+            </button>
           </div>
         </div>
 
@@ -524,7 +512,7 @@ RESUMEN GENERAL:
       </header>
 
       {/* VISTA 1: CAJA POS */}
-      {activeTab === 'pos' && userPermissions.includes('view_pos') && (
+      {activeTab === 'pos' && (
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
           <div className="lg:col-span-7 flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -786,87 +774,85 @@ RESUMEN GENERAL:
       )}
 
       {/* VISTA 2: INVENTARIO */}
-      {activeTab === 'inventory' && userPermissions.includes('view_inventory') && (
+      {activeTab === 'inventory' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
             <span className="text-sm text-slate-400">Control de costos y márgenes</span>
           </div>
 
-          {userPermissions.includes('edit_inventory') && (
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-              <h3 className="text-lg font-semibold mb-4 text-blue-400">Registrar Nuevo Producto</h3>
-              <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-400 mb-1">Nombre</label>
-                  <input 
-                    type="text" required
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Ej. Maltín Polar"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Costo ($)</label>
-                  <input 
-                    type="number" step="0.01" required
-                    value={newCostPrice}
-                    onChange={(e) => setNewCostPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Venta ($)</label>
-                  <input 
-                    type="number" step="0.01" required
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Stock</label>
-                  <input 
-                    type="number" required
-                    value={newStock}
-                    onChange={(e) => setNewStock(e.target.value)}
-                    placeholder="0"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Categoría</label>
-                  <select 
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="Comida">Comida</option>
-                    <option value="Bebidas">Bebidas</option>
-                    <option value="Pasapalos">Pasapalos</option>
-                    <option value="Víveres">Víveres</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2 pt-5">
-                  <input 
-                    type="checkbox" id="tax"
-                    checked={newTaxable}
-                    onChange={(e) => setNewTaxable(e.target.checked)}
-                    className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
-                  />
-                  <label htmlFor="tax" className="text-xs text-slate-300 font-medium cursor-pointer">Aplica IVA (16%)</label>
-                </div>
-                <div className="sm:col-span-2 lg:col-span-5 flex items-end">
-                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition">
-                    Guardar Producto
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold mb-4 text-blue-400">Registrar Nuevo Producto</h3>
+            <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-slate-400 mb-1">Nombre</label>
+                <input 
+                  type="text" required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Ej. Maltín Polar"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Costo ($)</label>
+                <input 
+                  type="number" step="0.01" required
+                  value={newCostPrice}
+                  onChange={(e) => setNewCostPrice(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Venta ($)</label>
+                <input 
+                  type="number" step="0.01" required
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Stock</label>
+                <input 
+                  type="number" required
+                  value={newStock}
+                  onChange={(e) => setNewStock(e.target.value)}
+                  placeholder="0"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Categoría</label>
+                <select 
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="Comida">Comida</option>
+                  <option value="Bebidas">Bebidas</option>
+                  <option value="Pasapalos">Pasapalos</option>
+                  <option value="Víveres">Víveres</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input 
+                  type="checkbox" id="tax"
+                  checked={newTaxable}
+                  onChange={(e) => setNewTaxable(e.target.checked)}
+                  className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
+                />
+                <label htmlFor="tax" className="text-xs text-slate-300 font-medium cursor-pointer">Aplica IVA (16%)</label>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-5 flex items-end">
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                  Guardar Producto
+                </button>
+              </div>
+            </form>
+          </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
             <table className="w-full text-left border-collapse">
@@ -879,7 +865,7 @@ RESUMEN GENERAL:
                   <th className="p-4">Margen</th>
                   <th className="p-4">Fiscalidad</th>
                   <th className="p-4">Stock</th>
-                  {userPermissions.includes('edit_inventory') && <th className="p-4 text-right">Acciones</th>}
+                  <th className="p-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 text-sm">
@@ -894,11 +880,9 @@ RESUMEN GENERAL:
                       <td className="p-4 text-emerald-400 font-semibold">{margin}%</td>
                       <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded ${prod.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>{prod.taxable ? 'Gravado (16%)' : 'Exento'}</span></td>
                       <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${prod.stock <= 5 ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-200'}`}>{prod.stock} un.</span></td>
-                      {userPermissions.includes('edit_inventory') && (
-                        <td className="p-4 text-right">
-                          <button onClick={() => deleteProduct(prod.id)} className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition">Eliminar</button>
-                        </td>
-                      )}
+                      <td className="p-4 text-right">
+                        <button onClick={() => deleteProduct(prod.id)} className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition">Eliminar</button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -909,7 +893,7 @@ RESUMEN GENERAL:
       )}
 
       {/* VISTA 3: CUENTAS POR COBRAR */}
-      {activeTab === 'credits' && userPermissions.includes('view_credits') && (
+      {activeTab === 'credits' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
@@ -966,8 +950,8 @@ RESUMEN GENERAL:
         </main>
       )}
 
-      {/* VISTA 4: NUEVO MÓDULO DE CUENTAS POR PAGAR */}
-      {activeTab === 'payables' && userPermissions.includes('view_payables') && (
+      {/* VISTA 4: MÓDULO DE CUENTAS POR PAGAR */}
+      {activeTab === 'payables' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
@@ -1086,7 +1070,7 @@ RESUMEN GENERAL:
       )}
 
       {/* VISTA 5: REPORTES Y CIERRE DE CAJA Z */}
-      {activeTab === 'reports' && userPermissions.includes('view_reports') && (
+      {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
@@ -1152,7 +1136,7 @@ RESUMEN GENERAL:
       )}
 
       {/* VISTA 6: MÓDULO DE ROLES Y PERSONAL */}
-      {activeTab === 'roles' && userPermissions.includes('manage_roles') && (
+      {activeTab === 'roles' && (
         <RolesManagerModule />
       )}
     </div>
