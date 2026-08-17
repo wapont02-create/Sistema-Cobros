@@ -57,9 +57,9 @@ type PayableAccount = {
 
 const INITIAL_PRODUCTS: Product[] = [
   { id: 1, name: 'Café Americano', costPrice: 1.20, price: 2.50, category: 'Bebidas', taxable: true, stock: 45 },
-  { id: 2, name: 'Tequeños (6 unid.)', costPrice: 2.50, price: 5.00, category: 'Pasapalos', taxable: true, stock: 20 },
+  { id: 2, name: 'Tequeños (6 unid.)', costPrice: 2.50, price: 5.00, category: 'Pasapalos', taxable: true, stock: 4 },
   { id: 3, name: 'Hamburguesa Clásica', costPrice: 4.50, price: 8.50, category: 'Comida', taxable: true, stock: 15 },
-  { id: 4, name: 'Refresco 350ml', costPrice: 0.80, price: 1.50, category: 'Bebidas', taxable: true, stock: 30 },
+  { id: 4, name: 'Refresco 350ml', costPrice: 0.80, price: 1.50, category: 'Bebidas', taxable: true, stock: 3 },
   { id: 5, name: 'Huevos (Cartón)', costPrice: 2.20, price: 3.00, category: 'Víveres', taxable: false, stock: 10 },
 ];
 
@@ -117,6 +117,9 @@ export default function DashboardPOS() {
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
+
+  // Filtro de inventario (Todos o solo stock bajo)
+  const [inventoryFilterMode, setInventoryFilterMode] = useState<'all' | 'low'>('all');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -265,7 +268,6 @@ export default function DashboardPOS() {
     setProducts(prev => prev.filter(p => p.id !== id));
   };
 
-  // Función para reponer stock
   const handleRestockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductForRestock || !restockAmount) return;
@@ -283,6 +285,23 @@ export default function DashboardPOS() {
     setIsRestockModalOpen(false);
     setSelectedProductForRestock(null);
     setRestockAmount('');
+  };
+
+  // Función para exportar inventario a CSV
+  const exportInventoryToCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,ID,Producto,Categoria,Costo_USD,Precio_USD,Stock,Gravado_IVA\n";
+    products.forEach(p => {
+      const row = [p.id, `"${p.name}"`, `"${p.category}"`, p.costPrice, p.price, p.stock, p.taxable ? 'SI' : 'NO'];
+      csvContent += row.join(",") + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `inventario_pos_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const subtotalUSD = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -445,6 +464,16 @@ RESUMEN GENERAL:
 
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
 
+  // Productos filtrados para el inventario (incluyendo alerta de stock bajo <= 5)
+  const inventoryProducts = products.filter(p => {
+    if (inventoryFilterMode === 'low') {
+      return p.stock <= 5;
+    }
+    return true;
+  });
+
+  const lowStockCount = products.filter(p => p.stock <= 5).length;
+
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col relative">
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4">
@@ -459,9 +488,14 @@ RESUMEN GENERAL:
             </button>
             <button 
               onClick={() => setActiveTab('inventory')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               📦 Inventario
+              {lowStockCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                  {lowStockCount}
+                </span>
+              )}
             </button>
             <button 
               onClick={() => setActiveTab('accounts')}
@@ -845,9 +879,35 @@ RESUMEN GENERAL:
       {/* VISTA 2: INVENTARIO */}
       {activeTab === 'inventory' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
-            <span className="text-sm text-slate-400">Control de costos y márgenes</span>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
+              <span className="text-sm text-slate-400">Control de costos, márgenes y alertas</span>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
+                <button 
+                  onClick={() => setInventoryFilterMode('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${inventoryFilterMode === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Todos ({products.length})
+                </button>
+                <button 
+                  onClick={() => setInventoryFilterMode('low')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${inventoryFilterMode === 'low' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  ⚠️ Stock Bajo ({lowStockCount})
+                </button>
+              </div>
+
+              <button 
+                onClick={exportInventoryToCSV}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs transition shadow flex items-center gap-1.5"
+              >
+                📥 Exportar CSV
+              </button>
+            </div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
@@ -938,17 +998,32 @@ RESUMEN GENERAL:
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 text-sm">
-                {products.map(prod => {
+                {inventoryProducts.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="text-center py-12 text-slate-500">
+                      No hay productos que mostrar en este filtro.
+                    </td>
+                  </tr>
+                )}
+                {inventoryProducts.map(prod => {
                   const margin = prod.costPrice > 0 ? (((prod.price - prod.costPrice) / prod.costPrice) * 100).toFixed(0) : 0;
+                  const isLow = prod.stock <= 5;
                   return (
                     <tr key={prod.id} className="hover:bg-slate-800/40 transition">
-                      <td className="p-4 font-medium text-white">{prod.name}</td>
+                      <td className="p-4 font-medium text-white flex items-center gap-2">
+                        {prod.name}
+                        {isLow && (
+                          <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                            ⚠️ Stock Bajo
+                          </span>
+                        )}
+                      </td>
                       <td className="p-4"><span className="text-[10px] uppercase font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">{prod.category}</span></td>
                       <td className="p-4 text-slate-400">${prod.costPrice.toFixed(2)}</td>
                       <td className="p-4 font-bold text-blue-400">${prod.price.toFixed(2)}</td>
                       <td className="p-4 text-emerald-400 font-semibold">{margin}%</td>
                       <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded ${prod.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>{prod.taxable ? 'Gravado (16%)' : 'Exento'}</span></td>
-                      <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${prod.stock <= 5 ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-200'}`}>{prod.stock} un.</span></td>
+                      <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${isLow ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-200'}`}>{prod.stock} un.</span></td>
                       <td className="p-4 text-right space-x-2">
                         <button 
                           onClick={() => { setSelectedProductForRestock(prod); setIsRestockModalOpen(true); }} 
