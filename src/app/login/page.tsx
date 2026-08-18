@@ -7,6 +7,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [darkMode, setDarkMode] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -17,22 +19,41 @@ export default function LoginPage() {
     }
   }, [darkMode]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Iniciando sesión con:", email);
-    router.push('/dashboard');
+    setErrorMsg('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        router.push('/dashboard');
+      } else {
+        setErrorMsg(data.message || 'Credenciales inválidas');
+      }
+    } catch (error) {
+      setErrorMsg('Ocurrió un error al intentar conectar con el servidor.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Función para rellenar automáticamente las credenciales de prueba con un clic
   const fillDemoCredentials = () => {
     setEmail('demo@posenterprise.ve');
     setPassword('Demo1234*');
+    setErrorMsg('');
   };
 
   return (
     <div className={`min-h-screen flex flex-col justify-between transition-colors duration-300 ${darkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* Barra superior con selector de modo y botón para volver al inicio */}
       <header className="max-w-7xl mx-auto w-full px-6 py-6 flex justify-between items-center">
         <Link href="/" className="text-xl font-black text-blue-600 tracking-wider">
           ⚡ POS Enterprise Venezuela
@@ -47,7 +68,6 @@ export default function LoginPage() {
         </button>
       </header>
 
-      {/* Contenedor del Login */}
       <main className="flex items-center justify-center p-6 flex-grow">
         <div className={`w-full max-w-md p-8 rounded-3xl border transition-colors duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-2xl shadow-blue-950/20' : 'bg-white border-slate-200 shadow-xl'}`}>
           <div className="text-center mb-8">
@@ -59,6 +79,12 @@ export default function LoginPage() {
               Ingresa a tu Terminal POS Enterprise
             </p>
           </div>
+
+          {errorMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs text-center font-medium">
+              {errorMsg}
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -89,13 +115,13 @@ export default function LoginPage() {
             </div>
             <button 
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition mt-4 shadow-lg shadow-blue-600/20"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition mt-4 shadow-lg shadow-blue-600/20 disabled:opacity-50"
             >
-              Iniciar Sesión
+              {loading ? 'Verificando...' : 'Iniciar Sesión'}
             </button>
           </form>
 
-          {/* Credenciales de Demostración para Clientes */}
           <div className={`mt-8 p-4 rounded-2xl border text-center transition-colors ${darkMode ? 'bg-slate-950/60 border-slate-800/80' : 'bg-blue-50/50 border-blue-100'}`}>
             <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
               🚀 Acceso Rápido de Demostración
@@ -124,7 +150,6 @@ export default function LoginPage() {
         </div>
       </main>
 
-      {/* Pie de página */}
       <footer className={`py-6 text-center text-xs transition-colors duration-300 ${darkMode ? 'text-slate-500 border-t border-slate-900' : 'text-slate-500 border-t border-slate-200'}`}>
         <p>POS Enterprise Venezuela • Sistema en la Nube</p>
       </footer>
