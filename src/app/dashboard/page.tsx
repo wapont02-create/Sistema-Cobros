@@ -55,35 +55,13 @@ type PayableAccount = {
   status: 'Pendiente' | 'Pagado';
 };
 
-const INITIAL_PRODUCTS: Product[] = [
-  { id: 1, name: 'Café Americano', costPrice: 1.20, price: 2.50, category: 'Bebidas', taxable: true, stock: 45 },
-  { id: 2, name: 'Tequeños (6 unid.)', costPrice: 2.50, price: 5.00, category: 'Pasapalos', taxable: true, stock: 4 },
-  { id: 3, name: 'Hamburguesa Clásica', costPrice: 4.50, price: 8.50, category: 'Comida', taxable: true, stock: 15 },
-  { id: 4, name: 'Refresco 350ml', costPrice: 0.80, price: 1.50, category: 'Bebidas', taxable: true, stock: 3 },
-  { id: 5, name: 'Huevos (Cartón)', costPrice: 2.20, price: 3.00, category: 'Víveres', taxable: false, stock: 10 },
-];
-
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
   
-  const [products, setProducts] = useState<Product[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('pos_products');
-      if (saved) return JSON.parse(saved);
-    }
-    return INITIAL_PRODUCTS;
-  });
-
-  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('pos_sales');
-      if (saved) return JSON.parse(saved);
-    }
-    return [];
-  });
-
+  const [products, setProducts] = useState<Product[]>([]);
+  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
   const [credits, setCredits] = useState<CreditAccount[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('pos_credits');
@@ -109,16 +87,33 @@ export default function DashboardPOS() {
   });
 
   const [currentUsername, setCurrentUsername] = useState<string>('admin');
-
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
+
+  // Cargar productos y ventas desde las APIs de la nube al iniciar
+  useEffect(() => {
+    async function loadCloudData() {
+      try {
+        const prodRes = await fetch('/api/products');
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) setProducts(prodData);
+
+        const salesRes = await fetch('/api/sales');
+        const salesData = await salesRes.json();
+        if (Array.isArray(salesData)) setSalesHistory(salesData);
+      } catch (error) {
+        console.error("Error al sincronizar datos con la nube:", error);
+      }
+    }
+    loadCloudData();
+  }, []);
 
   // Estado para la reposición de inventario
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
 
-  // Filtro de inventario (Todos o solo stock bajo)
+  // Filtro de inventario
   const [inventoryFilterMode, setInventoryFilterMode] = useState<'all' | 'low'>('all');
 
   useEffect(() => {
@@ -186,14 +181,6 @@ export default function DashboardPOS() {
   const [newStock, setNewStock] = useState('');
 
   useEffect(() => {
-    localStorage.setItem('pos_products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('pos_sales', JSON.stringify(salesHistory));
-  }, [salesHistory]);
-
-  useEffect(() => {
     localStorage.setItem('pos_credits', JSON.stringify(credits));
   }, [credits]);
 
@@ -242,12 +229,11 @@ export default function DashboardPOS() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newPrice || !newCostPrice || !newStock) return;
 
-    const newProd: Product = {
-      id: Date.now(),
+    const newProdPayload = {
       name: newName,
       costPrice: parseFloat(newCostPrice) || 0,
       price: parseFloat(newPrice) || 0,
@@ -256,12 +242,30 @@ export default function DashboardPOS() {
       stock: parseInt(newStock) || 0,
     };
 
-    setProducts(prev => [...prev, newProd]);
-    setNewName('');
-    setNewCostPrice('');
-    setNewPrice('');
-    setNewStock('');
-    alert('¡Producto registrado con éxito!');
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProdPayload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Recargar productos desde la base de datos
+        const prodRes = await fetch('/api/products');
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) setProducts(prodData);
+
+        setNewName('');
+        setNewCostPrice('');
+        setNewPrice('');
+        setNewStock('');
+        alert('¡Producto registrado con éxito en la nube!');
+      } else {
+        alert('Error al guardar el producto: ' + data.error);
+      }
+    } catch (error) {
+      console.error("Error al registrar producto:", error);
+    }
   };
 
   const deleteProduct = (id: number) => {
@@ -287,7 +291,6 @@ export default function DashboardPOS() {
     setRestockAmount('');
   };
 
-  // Función para exportar inventario a CSV
   const exportInventoryToCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,ID,Producto,Categoria,Costo_USD,Precio_USD,Stock,Gravado_IVA\n";
     products.forEach(p => {
@@ -313,7 +316,7 @@ export default function DashboardPOS() {
   const changeUSD = Math.max(0, cashUSD - totalUSD);
   const changeBs = changeUSD * exchangeRate;
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
 
     if (paymentMethod === 'Crédito / Fiado' && !clientName) {
@@ -321,19 +324,8 @@ export default function DashboardPOS() {
       return;
     }
 
-    setProducts(prev => prev.map(prod => {
-      const cartItem = cart.find(c => c.id === prod.id);
-      if (cartItem) {
-        return { ...prod, stock: Math.max(0, prod.stock - cartItem.quantity) };
-      }
-      return prod;
-    }));
-
-    const saleId = Date.now();
-    const newSale: SaleRecord = {
-      id: saleId,
+    const salePayload = {
       date: new Date().toLocaleString(),
-      items: [...cart],
       subtotalUSD,
       ivaUSD: totalIvaUSD,
       totalUSD,
@@ -341,35 +333,62 @@ export default function DashboardPOS() {
       exchangeRate,
       paymentMethod,
       changeUSD,
-      clientName: paymentMethod === 'Crédito / Fiado' ? clientName : undefined,
+      clientName: paymentMethod === 'Crédito / Fiado' ? clientName : 'Cliente Genérico',
+      items: cart
     };
 
-    setSalesHistory(prev => [newSale, ...prev]);
+    try {
+      const res = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(salePayload)
+      });
+      const result = await res.json();
 
-    if (paymentMethod === 'Crédito / Fiado') {
-      const newCredit: CreditAccount = {
-        id: Date.now(),
-        clientName,
-        clientPhone: clientPhone || 'N/A',
-        clientDocument: clientDocument || 'N/A',
-        totalDebtUSD: totalUSD,
-        totalDebtBs: totalBs,
-        date: new Date().toLocaleString(),
-        status: 'Pendiente',
-        saleId,
-      };
-      setCredits(prev => [newCredit, ...prev]);
-      alert(`¡Crédito registrado con éxito para ${clientName}!\nTotal: $${totalUSD.toFixed(2)} (Bs. ${totalBs.toFixed(2)})`);
-    } else {
-      alert(`¡Pago procesado con éxito!\nMétodo: ${paymentMethod}\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
+      if (result.success) {
+        // Actualizar stock localmente y recargar ventas
+        setProducts(prev => prev.map(prod => {
+          const cartItem = cart.find(c => c.id === prod.id);
+          if (cartItem) {
+            return { ...prod, stock: Math.max(0, prod.stock - cartItem.quantity) };
+          }
+          return prod;
+        }));
+
+        const salesRes = await fetch('/api/sales');
+        const salesData = await salesRes.json();
+        if (Array.isArray(salesData)) setSalesHistory(salesData);
+
+        if (paymentMethod === 'Crédito / Fiado') {
+          const newCredit: CreditAccount = {
+            id: Date.now(),
+            clientName,
+            clientPhone: clientPhone || 'N/A',
+            clientDocument: clientDocument || 'N/A',
+            totalDebtUSD: totalUSD,
+            totalDebtBs: totalBs,
+            date: new Date().toLocaleString(),
+            status: 'Pendiente',
+            saleId: result.saleId,
+          };
+          setCredits(prev => [newCredit, ...prev]);
+          alert(`¡Crédito registrado con éxito para ${clientName}!\nTotal: $${totalUSD.toFixed(2)} (Bs. ${totalBs.toFixed(2)})`);
+        } else {
+          alert(`¡Pago procesado con éxito en la nube!\nMétodo: ${paymentMethod}\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
+        }
+
+        setCart([]);
+        setCashGivenUSD('');
+        setClientName('');
+        setClientPhone('');
+        setClientDocument('');
+        setIsCheckoutModalOpen(false);
+      } else {
+        alert('Error al procesar la venta: ' + result.error);
+      }
+    } catch (error) {
+      console.error("Error de conexión al procesar venta:", error);
     }
-
-    setCart([]);
-    setCashGivenUSD('');
-    setClientName('');
-    setClientPhone('');
-    setClientDocument('');
-    setIsCheckoutModalOpen(false);
   };
 
   const payCredit = (creditId: number) => {
@@ -464,7 +483,6 @@ RESUMEN GENERAL:
 
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
 
-  // Productos filtrados para el inventario (incluyendo alerta de stock bajo <= 5)
   const inventoryProducts = products.filter(p => {
     if (inventoryFilterMode === 'low') {
       return p.stock <= 5;
@@ -1068,7 +1086,6 @@ RESUMEN GENERAL:
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* COLUMNA IZQUIERDA: CUENTAS POR COBRAR (CLIENTES) */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
@@ -1119,7 +1136,6 @@ RESUMEN GENERAL:
               </div>
             </div>
 
-            {/* COLUMNA DERECHA: CUENTAS POR PAGAR (PROVEEDORES) */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-3">
