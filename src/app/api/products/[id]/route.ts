@@ -1,24 +1,42 @@
 import { NextResponse } from 'next/server';
-// Importa tu cliente de base de datos aquí (por ejemplo, sqlite-cloud o el que uses)
+// Asegúrate de importar tu conexión o cliente de SQLite Cloud que uses en los demás archivos de API
+// import { db } from '@/lib/db'; 
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    // Si usas Next.js 15+, params es una promesa y requiere await:
+    // Resolver los parámetros de la URL de forma segura para Next.js
     const resolvedParams = await params;
     const id = resolvedParams.id;
     
     const body = await request.json();
-    const { stock } = body;
+    const { stock, name, price, costPrice, category, taxable } = body;
 
-    // Ejecuta la sentencia SQL en tu base de datos para actualizar el stock
-    // Ejemplo:
+    // Dependiendo de cómo estés ejecutando las consultas SQL en tu proyecto (por ejemplo, con sqlite-cloud o sql template):
+    // Ejemplo usando una sentencia SQL directa:
     // await db.sql`UPDATE products SET stock = ${stock} WHERE id = ${id}`;
 
-    return NextResponse.json({ success: true, message: 'Stock actualizado correctamente' });
+    // Si estás manejando una conexión genérica, asegúrate de actualizar la columna 'stock' (y las demás si aplican):
+    /*
+      Ejemplo alternativo:
+      await db.execute({
+        sql: "UPDATE products SET stock = ? WHERE id = ?",
+        args: [stock, id]
+      });
+    */
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Stock del producto ${id} actualizado correctamente a ${stock}` 
+    });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("Error en API PUT /products/[id]:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Error interno al actualizar el producto' }, 
+      { status: 500 }
+    );
   }
 }
