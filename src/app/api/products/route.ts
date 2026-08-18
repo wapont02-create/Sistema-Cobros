@@ -3,30 +3,28 @@ import { db } from '../../../db/client';
 
 export async function GET() {
   try {
-    const result = await db.execute("SELECT * FROM products");
-    // Convertir el campo taxable de 0/1 a booleano para el frontend
-    const formattedRows = result.rows.map((row: any) => ({
-      ...row,
-      taxable: row.taxable === 1
-    }));
-    return NextResponse.json(formattedRows);
+    const result = await db.sql("SELECT * FROM products ORDER BY id DESC");
+    return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json({ error: 'Error al obtener los productos' }, { status: 500 });
+    console.error("Error al obtener productos:", error);
+    return NextResponse.json({ error: 'Error al obtener productos' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, costPrice, price, category, taxable, stock } = body;
+    const { name, barcode, price_usd, stock } = body;
 
-    await db.execute({
-      sql: `INSERT INTO products (name, costPrice, price, category, taxable, stock) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [name, costPrice, price, category, taxable ? 1 : 0, stock]
-    });
+    if (!name || price_usd === undefined) {
+      return NextResponse.json({ error: 'Nombre y precio son obligatorios' }, { status: 400 });
+    }
 
-    return NextResponse.json({ success: true, message: 'Producto registrado en la nube' });
+    await db.sql(`INSERT INTO products (name, barcode, price_usd, stock) VALUES ('${name}', '${barcode || ''}', ${Number(price_usd)}, ${Number(stock || 0)})`);
+
+    return NextResponse.json({ success: true, message: 'Producto registrado con éxito' });
   } catch (error) {
-    return NextResponse.json({ error: 'Error al guardar el producto' }, { status: 500 });
+    console.error("Error al registrar producto:", error);
+    return NextResponse.json({ error: 'Error al registrar el producto' }, { status: 500 });
   }
 }
