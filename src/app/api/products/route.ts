@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../db/client'; // Asegúrate de que esta ruta apunte a tu cliente de base de datos
+import { db } from '../../../db/client'; // Ajusta la ruta si es necesario según la ubicación exacta de tu cliente
 
 export async function GET() {
   try {
-    // Usamos 'db.sql' tal como lo tienes configurado en el resto de tus rutas
-    const products = await db.sql(`SELECT id, name, price_usd, stock, 1 as taxable, 'General' as category, 0 as costPrice FROM products`);
+    const products = await db.sql(`SELECT id, name, barcode, price_usd, stock, taxable, category, cost_price FROM products`);
 
     const formattedProducts = Array.isArray(products) ? products.map((p: any) => ({
       id: p.id,
       name: p.name,
+      barcode: p.barcode,
       price: p.price_usd,
       stock: p.stock,
       taxable: p.taxable !== undefined ? Boolean(p.taxable) : true,
       category: p.category || 'General',
-      costPrice: p.cost_price || p.costPrice || 0
+      costPrice: p.cost_price || 0
     })) : [];
 
     return NextResponse.json(formattedProducts);
@@ -26,17 +26,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, price, stock, costPrice, category, taxable, barcode } = body;
+    const { name, price, stock, taxable, barcode, category, costPrice } = body;
 
     if (!name || price === undefined || price === null) {
       return NextResponse.json({ success: false, error: 'Nombre y precio son obligatorios' }, { status: 400 });
     }
 
     const generatedBarcode = barcode || '759' + Math.floor(100000000 + Math.random() * 900000000);
+    const finalStock = stock !== undefined ? Number(stock) : 0;
+    const finalTaxable = taxable ? 1 : 0;
+    const finalCategory = category || 'General';
+    const finalCost = costPrice !== undefined ? Number(costPrice) : 0;
 
     await db.sql(`
-      INSERT INTO products (name, price_usd, stock, cost_price, category, taxable, barcode) 
-      VALUES ('${name}', ${price}, ${stock || 0}, ${costPrice || 0}, '${category || 'General'}', ${taxable ? 1 : 0}, '${generatedBarcode}')
+      INSERT INTO products (name, barcode, price_usd, stock, taxable, category, cost_price) 
+      VALUES ('${name}', '${generatedBarcode}', ${price}, ${finalStock}, ${finalTaxable}, '${finalCategory}', ${finalCost})
     `);
 
     return NextResponse.json({ success: true, message: 'Producto registrado con éxito' });
