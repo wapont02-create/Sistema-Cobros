@@ -1,7 +1,10 @@
-import { createClient } from '@libsql/client';
+import { Database } from '@sqlitecloud/drivers';
 
-// Configura tu conexión utilizando las variables de entorno de SQLite Cloud o Turso
-export const db = createClient({
-  url: process.env.DATABASE_URL || '',
-  authToken: process.env.DATABASE_AUTH_TOKEN || '',
-});
+// Inicializar la conexión usando SQLite Cloud con la variable de entorno
+const connectionString = process.env.DATABASE_URL || '';
+
+if (!connectionString) {
+  console.error('ADVERTENCIA: La variable de entorno DATABASE_URL no está configurada.');
+}
+
+export const db = new Database(connectionString);
