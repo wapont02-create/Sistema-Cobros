@@ -29,16 +29,10 @@ export default function LandingPage() {
             {darkMode ? '☀️ Modo Claro' : '🌙 Modo Oscuro'}
           </button>
 
-          <Link 
-            href="/login"
-            className="text-sm font-medium transition hidden sm:inline-block opacity-80 hover:opacity-100"
-          >
+          <Link className="text-sm font-medium transition hidden sm:inline-block opacity-80 hover:opacity-100" href="/login">
             Ver demo
           </Link>
-          <Link 
-            href="/login"
-            className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-600/30"
-          >
+          <Link className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-600/30" href="/login">
             Entrar al Sistema
           </Link>
         </div>
@@ -57,10 +51,7 @@ export default function LandingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full justify-center mb-20">
-          <Link 
-            href="/login"
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-lg transition shadow-xl shadow-blue-600/30"
-          >
+          <Link className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-lg transition shadow-xl shadow-blue-600/30" href="/login">
             Iniciar Sesión en el Sistema
           </Link>
         </div>
@@ -142,10 +133,7 @@ export default function LandingPage() {
           <p className={`text-sm sm:text-base max-w-xl mx-auto mb-8 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
             Únete a los emprendedores y comerciantes que ya están modernizando su manera de vender, cobrar y proyectarse al mundo.
           </p>
-          <Link 
-            href="/login"
-            className="inline-block bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-base transition shadow-xl shadow-blue-600/30"
-          >
+          <Link className="inline-block bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-base transition shadow-xl shadow-blue-600/30" href="/login">
             Iniciar Sesión en el Sistema
           </Link>
         </div>
@@ -153,9 +141,8 @@ export default function LandingPage() {
 
       {/* Pie de página */}
       <footer className={`border-t py-8 text-center text-sm transition-colors duration-300 ${darkMode ? 'border-slate-900 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
-        <p>POS Enterprise Venezuela • Todos los derechos reservados[cite: 2].</p>
+        <p>POS Enterprise Venezuela • Todos los derechos reservados.</p>
       </footer>
     </div>
   );
 }
-```[cite: 2]
