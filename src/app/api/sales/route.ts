@@ -13,47 +13,39 @@ export async function POST(request: Request) {
       exchangeRate, 
       paymentMethod, 
       changeUSD, 
-      clientName,
-      items // Array de productos vendidos para actualizar stock y registrar ítems
+      clientName, 
+      items 
     } = body;
 
-    // 1. Insertar la venta principal
-    const saleResult = await db.execute({
-      sql: `INSERT INTO sales (date, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [date, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName || 'Cliente Genérico']
-    });
+    // 1. Insertar la venta principal[cite: 1]
+    await db.sql(`INSERT INTO sales (date, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName) VALUES ('${date}', ${subtotalUSD}, ${ivaUSD}, ${totalUSD}, ${totalBs}, ${exchangeRate}, '${paymentMethod}', ${changeUSD}, '${clientName || 'Cliente Genérico'}')`);
 
-    const saleId = Number(saleResult.lastInsertRowid);
+    // 2. Obtener el ID de la última venta insertada[cite: 1]
+    const lastSale = await db.sql("SELECT last_insert_rowid() as id");
+    const saleId = lastSale[0]?.id || lastSale[0]?.['last_insert_rowid()'];
 
-    // 2. Insertar los ítems de la venta y descontar stock de los productos
+    // 3. Insertar los ítems y descontar stock[cite: 1]
     if (items && Array.isArray(items)) {
       for (const item of items) {
-        await db.execute({
-          sql: `INSERT INTO sale_items (sale_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`,
-          args: [saleId, item.id, item.quantity, item.price]
-        });
+        await db.sql(`INSERT INTO sale_items (sale_id, product_id, quantity, price) VALUES (${saleId}, ${item.id}, ${item.quantity}, ${item.price})`);
 
-        // Descontar del inventario
-        await db.execute({
-          sql: `UPDATE products SET stock = stock - ? WHERE id = ?`,
-          args: [item.quantity, item.id]
-        });
+        await db.sql(`UPDATE products SET stock = stock - ${item.quantity} WHERE id = ${item.id}`);
       }
     }
 
-    return NextResponse.json({ success: true, saleId, message: 'Venta registrada con éxito' });
+    return NextResponse.json({ success: true, saleId, message: 'Venta registrada con éxito'[cite: 1] });
   } catch (error) {
     console.error("Error al registrar venta:", error);
-    return NextResponse.json({ error: 'Error al procesar la venta en la base de datos' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al procesar la venta en la base de datos'[cite: 1] }, { status: 500 });
   }
 }
 
 export async function GET() {
   try {
-    const result = await db.execute("SELECT * FROM sales ORDER BY id DESC");
-    return NextResponse.json(result.rows);
+    const result = await db.sql("SELECT * FROM sales ORDER BY id DESC");
+    return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json({ error: 'Error al obtener el historial de ventas' }, { status: 500 });
+    console.error("Error al obtener historial de ventas:", error);
+    return NextResponse.json({ error: 'Error al obtener el historial de ventas'[cite: 1] }, { status: 500 });
   }
 }
