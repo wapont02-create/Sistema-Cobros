@@ -3,15 +3,18 @@ import { NextResponse } from 'next/server';
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    // Si usas Next.js 15+, params es una promesa y requiere await:
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
+    
     const body = await request.json();
     const { stock } = body;
 
     // Ejecuta la sentencia SQL en tu base de datos para actualizar el stock
-    // Ejemplo genérico:
+    // Ejemplo:
     // await db.sql`UPDATE products SET stock = ${stock} WHERE id = ${id}`;
 
     return NextResponse.json({ success: true, message: 'Stock actualizado correctamente' });
