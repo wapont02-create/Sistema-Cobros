@@ -1,41 +1,42 @@
 import { NextResponse } from 'next/server';
-// Asegúrate de importar tu conexión o cliente de SQLite Cloud que uses en los demás archivos de API
-// import { db } from '@/lib/db'; 
+// Asegúrate de importar tu conexión o cliente de base de datos (por ejemplo, sqlite-cloud)
+// import { SqliteCloudClient } from '@sqlitecloud/drivers'; // o la que utilices en tu proyecto
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    // Resolver los parámetros de la URL de forma segura para Next.js
     const resolvedParams = await params;
     const id = resolvedParams.id;
     
     const body = await request.json();
-    const { stock, name, price, costPrice, category, taxable } = body;
+    const { stock } = body;
 
-    // Dependiendo de cómo estés ejecutando las consultas SQL en tu proyecto (por ejemplo, con sqlite-cloud o sql template):
-    // Ejemplo usando una sentencia SQL directa:
-    // await db.sql`UPDATE products SET stock = ${stock} WHERE id = ${id}`;
+    if (stock === undefined) {
+      return NextResponse.json({ success: false, error: 'Falta el campo stock' }, { status: 400 });
+    }
 
-    // Si estás manejando una conexión genérica, asegúrate de actualizar la columna 'stock' (y las demás si aplican):
+    // EJEMPLO DE CONEXIÓN Y CONSULTA A SQLITE CLOUD:
     /*
-      Ejemplo alternativo:
-      await db.execute({
-        sql: "UPDATE products SET stock = ? WHERE id = ?",
-        args: [stock, id]
-      });
+      Reemplaza esta sección con la misma forma en que haces consultas en tu archivo 
+      src/app/api/products/route.ts (por ejemplo, usando process.env.SQLITE_CLOUD_CONNECTION_STRING)
     */
+    // const client = new SqliteCloudClient(process.env.SQLITE_CLOUD_CONNECTION_STRING!);
+    // await client.sql(`UPDATE products SET stock = ${stock} WHERE id = ${id};`);
+
+    // Nota: Si usas otra forma de conexión en tu proyecto, asegúrate de que ejecute:
+    // UPDATE products SET stock = [nuevo_stock] WHERE id = [id]
 
     return NextResponse.json({ 
       success: true, 
-      message: `Stock del producto ${id} actualizado correctamente a ${stock}` 
+      message: `Stock actualizado con éxito para el producto ID ${id}` 
     });
 
   } catch (error: any) {
-    console.error("Error en API PUT /products/[id]:", error);
+    console.error("Error al actualizar stock en la API:", error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Error interno al actualizar el producto' }, 
+      { success: false, error: error.message || 'Error interno al procesar la solicitud' }, 
       { status: 500 }
     );
   }
