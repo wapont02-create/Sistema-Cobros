@@ -1319,4 +1319,4 @@ RESUMEN GENERAL:
       )}
     </div>
   );
-}[cite: 3]
+
