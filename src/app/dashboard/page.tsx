@@ -58,9 +58,6 @@ type PayableAccount = {
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => { setIsMounted(true); }, []);
-
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -93,34 +90,30 @@ export default function DashboardPOS() {
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
+  // Cargar productos y ventas desde las APIs de la nube al iniciar
   useEffect(() => {
     async function loadCloudData() {
       try {
-        const [prodRes, salesRes] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/sales')
-        ]);
-        
-        if (prodRes.ok) {
-          const prodData = await prodRes.json();
-          setProducts(Array.isArray(prodData) ? prodData : []);
-        }
-        
-        if (salesRes.ok) {
-          const salesData = await salesRes.json();
-          setSalesHistory(Array.isArray(salesData) ? salesData : []);
-        }
+        const prodRes = await fetch('/api/products');
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) setProducts(prodData);
+
+        const salesRes = await fetch('/api/sales');
+        const salesData = await salesRes.json();
+        if (Array.isArray(salesData)) setSalesHistory(salesData);
       } catch (error) {
-        console.error("Error al sincronizar datos:", error);
+        console.error("Error al sincronizar datos con la nube:", error);
       }
     }
     loadCloudData();
   }, []);
 
+  // Estado para la reposición de inventario
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
 
+  // Filtro de inventario
   const [inventoryFilterMode, setInventoryFilterMode] = useState<'all' | 'low'>('all');
 
   useEffect(() => {
@@ -278,23 +271,44 @@ export default function DashboardPOS() {
     setProducts(prev => prev.filter(p => p.id !== id));
   };
 
-  const handleRestockSubmit = (e: React.FormEvent) => {
+  // FUNCIÓN CORREGIDA Y SINCRONIZADA CON LA NUBE
+  const handleRestockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductForRestock || !restockAmount) return;
     const amount = parseInt(restockAmount) || 0;
     if (amount <= 0) return;
 
-    setProducts(prev => prev.map(p => {
-      if (p.id === selectedProductForRestock.id) {
-        return { ...p, stock: p.stock + amount };
-      }
-      return p;
-    }));
+    const newStockTotal = selectedProductForRestock.stock + amount;
 
-    alert(`¡Se han añadido ${amount} unidades a "${selectedProductForRestock.name}" con éxito!`);
-    setIsRestockModalOpen(false);
-    setSelectedProductForRestock(null);
-    setRestockAmount('');
+    try {
+      // Actualizar en la base de datos enviando el nuevo stock total
+      const res = await fetch(`/api/products/${selectedProductForRestock.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock: newStockTotal })
+      });
+      
+      const data = await res.json();
+
+      if (res.ok || data.success) {
+        // Volver a consultar los productos frescos de la API para reflejar el cambio en la tabla
+        const prodRes = await fetch('/api/products');
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) {
+          setProducts(prodData);
+        }
+
+        alert(`¡Se han añadido ${amount} unidades a "${selectedProductForRestock.name}" con éxito! Stock actual: ${newStockTotal}`);
+        setIsRestockModalOpen(false);
+        setSelectedProductForRestock(null);
+        setRestockAmount('');
+      } else {
+        alert('Error al actualizar el stock en la nube: ' + (data.error || 'Desconocido'));
+      }
+    } catch (error) {
+      console.error("Error de conexión al reponer stock:", error);
+      alert('Hubo un error de red al intentar actualizar el stock.');
+    }
   };
 
   const exportInventoryToCSV = () => {
@@ -496,8 +510,6 @@ RESUMEN GENERAL:
   });
 
   const lowStockCount = products.filter(p => p.stock <= 5).length;
-
-  if (!isMounted) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col relative">
