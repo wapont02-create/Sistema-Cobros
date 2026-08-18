@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../db/client'; // Ajusta la ruta relativa según qué tan profundo esté [id] respecto a db/client
+import { db } from '../../../../db/client';
 
 export async function PUT(
   request: Request,
@@ -16,7 +16,6 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'Falta el campo stock' }, { status: 400 });
     }
 
-    // Ejecución del UPDATE real usando tu cliente db
     await db.sql(`UPDATE products SET stock = ${stock} WHERE id = ${id};`);
 
     return NextResponse.json({ 
