@@ -267,11 +267,32 @@ export default function DashboardPOS() {
     }
   };
 
-  const deleteProduct = (id: number) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+  // FUNCIÓN CORREGIDA Y SINCRONIZADA CON LA NUBE PARA ELIMINAR
+  const deleteProduct = async (id: number) => {
+    if (!confirm("¿Estás seguro de eliminar este producto de la base de datos?")) return;
+
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (res.ok || data.success) {
+        const prodRes = await fetch('/api/products');
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) {
+          setProducts(prodData);
+        }
+        alert('¡Producto eliminado con éxito de la nube!');
+      } else {
+        alert('Error al eliminar el producto: ' + (data.error || 'Desconocido'));
+      }
+    } catch (error) {
+      console.error("Error de conexión al eliminar producto:", error);
+      alert('Hubo un error de red al intentar eliminar el producto.');
+    }
   };
 
-  // FUNCIÓN CORREGIDA Y SINCRONIZADA CON LA NUBE
   const handleRestockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductForRestock || !restockAmount) return;
@@ -281,7 +302,6 @@ export default function DashboardPOS() {
     const newStockTotal = selectedProductForRestock.stock + amount;
 
     try {
-      // Actualizar en la base de datos enviando el nuevo stock total
       const res = await fetch(`/api/products/${selectedProductForRestock.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -291,7 +311,6 @@ export default function DashboardPOS() {
       const data = await res.json();
 
       if (res.ok || data.success) {
-        // Volver a consultar los productos frescos de la API para reflejar el cambio en la tabla
         const prodRes = await fetch('/api/products');
         const prodData = await prodRes.json();
         if (Array.isArray(prodData)) {
