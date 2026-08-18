@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-// Asegúrate de importar tu conexión o cliente de base de datos (por ejemplo, sqlite-cloud)
-// import { SqliteCloudClient } from '@sqlitecloud/drivers'; // o la que utilices en tu proyecto
+import { db } from '../../../../db/client'; // Ajusta la ruta relativa según qué tan profundo esté [id] respecto a db/client
 
 export async function PUT(
   request: Request,
@@ -17,26 +16,18 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'Falta el campo stock' }, { status: 400 });
     }
 
-    // EJEMPLO DE CONEXIÓN Y CONSULTA A SQLITE CLOUD:
-    /*
-      Reemplaza esta sección con la misma forma en que haces consultas en tu archivo 
-      src/app/api/products/route.ts (por ejemplo, usando process.env.SQLITE_CLOUD_CONNECTION_STRING)
-    */
-    // const client = new SqliteCloudClient(process.env.SQLITE_CLOUD_CONNECTION_STRING!);
-    // await client.sql(`UPDATE products SET stock = ${stock} WHERE id = ${id};`);
-
-    // Nota: Si usas otra forma de conexión en tu proyecto, asegúrate de que ejecute:
-    // UPDATE products SET stock = [nuevo_stock] WHERE id = [id]
+    // Ejecución del UPDATE real usando tu cliente db
+    await db.sql(`UPDATE products SET stock = ${stock} WHERE id = ${id};`);
 
     return NextResponse.json({ 
       success: true, 
-      message: `Stock actualizado con éxito para el producto ID ${id}` 
+      message: 'Stock actualizado correctamente' 
     });
 
   } catch (error: any) {
-    console.error("Error al actualizar stock en la API:", error);
+    console.error("Error al actualizar stock:", error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Error interno al procesar la solicitud' }, 
+      { success: false, error: error.message || 'Error interno al actualizar' }, 
       { status: 500 }
     );
   }
