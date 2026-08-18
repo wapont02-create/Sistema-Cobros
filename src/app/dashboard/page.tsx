@@ -60,9 +60,6 @@ const IVA_RATE = 0.16;
 export default function DashboardPOS() {
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
   
-  // Estado para el tema (Inicia en 'light' por defecto)
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
   const [credits, setCredits] = useState<CreditAccount[]>(() => {
@@ -270,6 +267,7 @@ export default function DashboardPOS() {
     }
   };
 
+  // FUNCIÓN CORREGIDA Y SINCRONIZADA CON LA NUBE PARA ELIMINAR
   const deleteProduct = async (id: number) => {
     if (!confirm("¿Estás seguro de eliminar este producto de la base de datos?")) return;
 
@@ -532,34 +530,21 @@ RESUMEN GENERAL:
 
   const lowStockCount = products.filter(p => p.stock <= 5).length;
 
-  // Variables de diseño condicionales según el tema ('light' por defecto, cambia a 'dark' con el botón)
-  const isLight = theme === 'light';
-  const bgMain = isLight ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-white';
-  const bgHeader = isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800';
-  const bgCard = isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800';
-  const textSub = isLight ? 'text-slate-500' : 'text-slate-400';
-  const bgInput = isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-800 text-white';
-  const bgInputModal = isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-white';
-  const borderCol = isLight ? 'border-slate-200' : 'border-slate-800';
-  const itemCardBg = isLight ? 'bg-white border-slate-200 hover:border-blue-500/60 shadow-sm' : 'bg-slate-900 border-slate-800 hover:border-blue-500/60 shadow-lg';
-  const cartItemBg = isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/60 border-slate-800/60';
-  const subContainerBg = isLight ? 'bg-white border-slate-200' : 'bg-slate-950 border-slate-800';
-
   return (
-    <div className={`min-h-screen flex flex-col relative transition-colors ${bgMain}`}>
-      <header className={`border-b px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4 ${bgHeader}`}>
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col relative">
+      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
-          <span className="text-xl font-black text-blue-500">⚡ POS Enterprise Venezuela</span>
-          <div className={`flex flex-wrap p-1 rounded-xl border gap-1 ${isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'}`}>
+          <span className="text-xl font-black text-blue-400">⚡ POS Enterprise Venezuela</span>
+          <div className="flex flex-wrap bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
             <button 
               onClick={() => setActiveTab('pos')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'pos' ? 'bg-blue-600 text-white' : `${textSub} hover:text-blue-500`}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'pos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               🛒 Caja POS
             </button>
             <button 
               onClick={() => setActiveTab('inventory')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : `${textSub} hover:text-blue-500`}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               📦 Inventario
               {lowStockCount > 0 && (
@@ -570,19 +555,19 @@ RESUMEN GENERAL:
             </button>
             <button 
               onClick={() => setActiveTab('accounts')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white' : `${textSub} hover:text-blue-500`}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               📒 Cuentas (Cobrar/Pagar)
             </button>
             <button 
               onClick={() => setActiveTab('reports')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : `${textSub} hover:text-blue-500`}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
             >
               📊 Reportes Z
             </button>
             <button 
               onClick={() => setActiveTab('roles')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'roles' ? 'bg-cyan-600 text-white' : 'text-cyan-600 bg-cyan-50 border border-cyan-200'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'roles' ? 'bg-cyan-600 text-white' : 'text-cyan-400 hover:text-white bg-cyan-950/40 border border-cyan-800/50'}`}
             >
               🛡️ Roles y Personal
             </button>
@@ -590,40 +575,31 @@ RESUMEN GENERAL:
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Botón de alternar tema (Claro / Oscuro) */}
-          <button 
-            onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition ${isLight ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' : 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'}`}
-          >
-            <span>{isLight ? '☀️' : '🌙'}</span>
-            <span>{isLight ? 'Claro' : 'Oscuro'}</span>
-          </button>
-
-          <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-xl text-xs ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'}`}>
-            <span className={textSub}>Tasa BCV (Bs/$):</span>
+          <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl text-xs">
+            <span className="text-slate-400">Tasa BCV (Bs/$):</span>
             <input 
               type="number" 
               step="0.01"
               value={exchangeRate}
               onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
-              className={`font-bold w-20 px-2 py-0.5 rounded border text-center focus:outline-none focus:border-blue-500 ${isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'}`}
+              className="bg-slate-900 text-white font-bold w-20 px-2 py-0.5 rounded border border-slate-700 text-center focus:outline-none focus:border-blue-500"
             />
           </div>
 
-          <div className={`flex items-center gap-2.5 border px-3 py-1.5 rounded-xl text-xs ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'}`}>
+          <div className="flex items-center gap-2.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl text-xs">
             <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-xs">
               {currentUserObj?.name ? currentUserObj.name.charAt(0) : 'U'}
             </div>
             <div>
-              <div className={`font-semibold leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>{currentUserObj?.name || 'Usuario'}</div>
-              <div className="text-[10px] text-blue-500 uppercase font-bold">ROL : {currentRoleObj?.name || 'Sin Rol'}</div>
+              <div className="font-semibold text-white leading-tight">{currentUserObj?.name || 'Usuario'}</div>
+              <div className="text-[10px] text-blue-400 uppercase font-bold">ROL : {currentRoleObj?.name || 'Sin Rol'}</div>
             </div>
-            <div className={`ml-2 pl-2 border-l flex items-center gap-1.5 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
-              <span className={`text-[10px] hidden sm:inline ${textSub}`}>Cambiar Perfil:</span>
+            <div className="ml-2 pl-2 border-l border-slate-800 flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-400 hidden sm:inline">Cambiar Perfil:</span>
               <select 
                 value={currentUsername}
                 onChange={(e) => setCurrentUsername(e.target.value)}
-                className={`text-xs border rounded px-2 py-1 font-medium focus:outline-none focus:border-blue-500 cursor-pointer ${isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'}`}
+                className="bg-slate-900 text-xs text-white border border-slate-700 rounded px-2 py-1 font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {usersList.map(u => {
                   const roleOfUser = rolesList.find(r => 
@@ -652,14 +628,14 @@ RESUMEN GENERAL:
                 placeholder="Buscar producto por nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 ${bgInput}`}
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
               />
               <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
                 {categories.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${selectedCategory === cat ? 'bg-blue-600 text-white' : `${isLight ? 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}`}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${selectedCategory === cat ? 'bg-blue-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}
                   >
                     {cat}
                   </button>
@@ -675,29 +651,29 @@ RESUMEN GENERAL:
                   <button 
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className={`border p-4 rounded-2xl text-left transition flex flex-col justify-between group ${itemCardBg} ${
-                      isOut ? 'border-red-500/30 opacity-60 cursor-not-allowed' : ''
+                    className={`bg-slate-900 border p-4 rounded-2xl text-left transition flex flex-col justify-between group shadow-lg ${
+                      isOut ? 'border-red-500/30 opacity-60 cursor-not-allowed' : 'border-slate-800 hover:border-blue-500/60'
                     }`}
                   >
                     <div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] uppercase tracking-wider font-semibold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">
                           {product.category}
                         </span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${product.taxable ? 'text-amber-500 bg-amber-500/10' : 'text-emerald-500 bg-emerald-500/10'}`}>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${product.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>
                           {product.taxable ? 'IVA 16%' : 'Exento'}
                         </span>
                       </div>
-                      <div className={`font-semibold mt-2 text-sm group-hover:text-blue-500 transition ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                      <div className="font-semibold text-slate-200 mt-2 text-sm group-hover:text-white transition">
                         {product.name}
                       </div>
                     </div>
                     <div className="mt-4 flex justify-between items-end">
                       <div>
-                        <div className="font-bold text-blue-500 text-base">${Number(product.price || 0).toFixed(2)}</div>
-                        <div className={`text-[10px] ${textSub}`}>Bs. {Number(priceBs || 0).toFixed(2)}</div>
+                        <div className="font-bold text-blue-400 text-base">${Number(product.price || 0).toFixed(2)}</div>
+                        <div className="text-[10px] text-slate-500">Bs. {Number(priceBs || 0).toFixed(2)}</div>
                       </div>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isOut ? 'bg-red-500/20 text-red-500' : `${isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-300'}`}`}>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isOut ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-300'}`}>
                         Stk: {product.stock}
                       </span>
                     </div>
@@ -707,16 +683,16 @@ RESUMEN GENERAL:
             </div>
           </div>
 
-          <div className={`lg:col-span-5 border rounded-2xl p-6 flex flex-col justify-between shadow-xl ${bgCard}`}>
+          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
             <div>
-              <h2 className={`text-lg font-bold mb-4 border-b pb-3 flex justify-between items-center ${borderCol}`}>
+              <h2 className="text-lg font-bold mb-4 border-b border-slate-800 pb-3 flex justify-between items-center">
                 <span>Ticket de Venta</span>
-                <span className={`text-xs font-normal ${textSub}`}>{cart.length} items</span>
+                <span className="text-xs font-normal text-slate-400">{cart.length} items</span>
               </h2>
 
               <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                 {cart.length === 0 && (
-                  <div className={`text-center py-8 text-sm ${textSub}`}>
+                  <div className="text-center py-8 text-slate-500 text-sm">
                     No hay productos en el ticket.
                   </div>
                 )}
@@ -724,25 +700,25 @@ RESUMEN GENERAL:
                   const itemTotalUSD = (item.price || 0) * item.quantity;
                   const itemTotalBs = itemTotalUSD * exchangeRate;
                   return (
-                    <div key={item.id} className={`border p-3 rounded-xl flex justify-between items-center ${cartItemBg}`}>
+                    <div key={item.id} className="bg-slate-950/60 border border-slate-800/60 p-3 rounded-xl flex justify-between items-center">
                       <div className="flex-1 pr-2">
-                        <div className={`text-sm font-medium ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>{item.name}</div>
-                        <div className="text-xs text-blue-500">${Number(item.price || 0).toFixed(2)} c/u</div>
+                        <div className="text-sm font-medium text-slate-200">{item.name}</div>
+                        <div className="text-xs text-blue-400">${Number(item.price || 0).toFixed(2)} c/u</div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <div className={`flex items-center border rounded-lg ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
-                          <button onClick={() => updateQuantity(item.id, -1)} className={`px-2 py-1 text-xs ${textSub} hover:text-blue-500`}>-</button>
+                        <div className="flex items-center border border-slate-800 rounded-lg bg-slate-900">
+                          <button onClick={() => updateQuantity(item.id, -1)} className="px-2 py-1 text-slate-400 hover:text-white text-xs">-</button>
                           <span className="px-2 text-xs font-bold">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1)} className={`px-2 py-1 text-xs ${textSub} hover:text-blue-500`}>+</button>
+                          <button onClick={() => updateQuantity(item.id, 1)} className="px-2 py-1 text-slate-400 hover:text-white text-xs">+</button>
                         </div>
 
                         <div className="text-right w-20">
-                          <div className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>${Number(itemTotalUSD || 0).toFixed(2)}</div>
-                          <div className={`text-[10px] ${textSub}`}>Bs. {Number(itemTotalBs || 0).toFixed(2)}</div>
+                          <div className="text-sm font-bold">${Number(itemTotalUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-slate-500">Bs. {Number(itemTotalBs || 0).toFixed(2)}</div>
                         </div>
 
-                        <button onClick={() => removeFromCart(item.id)} className={`text-xs ml-1 ${textSub} hover:text-red-500`}>✕</button>
+                        <button onClick={() => removeFromCart(item.id)} className="text-slate-500 hover:text-red-400 text-xs ml-1">✕</button>
                       </div>
                     </div>
                   );
@@ -750,21 +726,21 @@ RESUMEN GENERAL:
               </div>
             </div>
 
-            <div className={`border-t pt-4 mt-4 space-y-3 ${borderCol}`}>
-              <div className={`p-4 rounded-xl border space-y-1.5 text-sm ${subContainerBg}`}>
-                <div className={`flex justify-between ${textSub}`}>
+            <div className="border-t border-slate-800 pt-4 mt-4 space-y-3">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1.5 text-sm">
+                <div className="flex justify-between text-slate-400">
                   <span>Subtotal:</span>
                   <span>${Number(subtotalUSD || 0).toFixed(2)}</span>
                 </div>
-                <div className={`flex justify-between ${textSub}`}>
+                <div className="flex justify-between text-slate-400">
                   <span>IVA (16%):</span>
                   <span>${Number(totalIvaUSD || 0).toFixed(2)}</span>
                 </div>
-                <div className={`flex justify-between items-baseline pt-2 border-t ${borderCol}`}>
-                  <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Total a Pagar:</span>
+                <div className="flex justify-between items-baseline pt-2 border-t border-slate-800">
+                  <span className="font-bold text-white">Total a Pagar:</span>
                   <div className="text-right">
-                    <div className="text-xl font-black text-blue-500">${Number(totalUSD || 0).toFixed(2)}</div>
-                    <div className="text-xs text-emerald-500 font-semibold">Bs. {Number(totalBs || 0).toFixed(2)}</div>
+                    <div className="text-xl font-black text-blue-400">${Number(totalUSD || 0).toFixed(2)}</div>
+                    <div className="text-xs text-emerald-400 font-semibold">Bs. {Number(totalBs || 0).toFixed(2)}</div>
                   </div>
                 </div>
               </div>
@@ -775,7 +751,7 @@ RESUMEN GENERAL:
                 className={`w-full py-3.5 rounded-xl font-bold transition shadow-lg ${
                   cart.length > 0 
                     ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 cursor-pointer' 
-                    : `${isLight ? 'bg-slate-200 text-slate-400' : 'bg-slate-800 text-slate-500'} cursor-not-allowed`
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}
               >
                 Procesar Venta 💳
@@ -787,39 +763,39 @@ RESUMEN GENERAL:
 
       {/* MODAL DE MÉTODOS DE PAGO Y CRÉDITO */}
       {isCheckoutModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`border rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto ${bgCard}`}>
-            <div className={`flex justify-between items-center border-b pb-3 ${borderCol}`}>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
-                <h3 className={`text-lg font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Confirmar Pago o Crédito</h3>
-                <p className={`text-xs ${textSub}`}>Seleccione el método de pago</p>
+                <h3 className="text-lg font-bold text-white">Confirmar Pago o Crédito</h3>
+                <p className="text-xs text-slate-400">Seleccione el método de pago</p>
               </div>
               <button 
                 onClick={() => setIsCheckoutModalOpen(false)}
-                className={`p-2 rounded-xl text-xs ${textSub} hover:text-blue-500 ${isLight ? 'bg-slate-100' : 'bg-slate-800/60'}`}
+                className="text-slate-400 hover:text-white bg-slate-800/60 p-2 rounded-xl text-xs"
               >
                 ✕
               </button>
             </div>
 
-            <div className={`p-4 rounded-2xl border flex justify-between items-center ${subContainerBg}`}>
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
               <div>
-                <div className={`text-xs ${textSub}`}>Total a Cancelar</div>
-                <div className="text-xl font-black text-blue-500">${Number(totalUSD || 0).toFixed(2)}</div>
+                <div className="text-xs text-slate-400">Total a Cancelar</div>
+                <div className="text-xl font-black text-blue-400">${Number(totalUSD || 0).toFixed(2)}</div>
               </div>
               <div className="text-right">
-                <div className={`text-xs ${textSub}`}>Equivalente BCV</div>
-                <div className="text-sm font-bold text-emerald-500">Bs. {Number(totalBs || 0).toFixed(2)}</div>
+                <div className="text-xs text-slate-400">Equivalente BCV</div>
+                <div className="text-sm font-bold text-emerald-400">Bs. {Number(totalBs || 0).toFixed(2)}</div>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className={`block text-xs font-medium mb-1 ${textSub}`}>Método de Pago</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago</label>
                 <select 
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethodType)}
-                  className={`w-full border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-blue-500 font-semibold text-blue-500 ${bgInputModal}`}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold text-blue-300"
                 >
                   <option value="Efectivo USD">💵 Efectivo USD ($)</option>
                   <option value="Pago Móvil">📱 Pago Móvil (Bs.)</option>
@@ -830,56 +806,56 @@ RESUMEN GENERAL:
               </div>
 
               {paymentMethod === 'Crédito / Fiado' ? (
-                <div className={`p-3 rounded-xl border space-y-2.5 ${subContainerBg}`}>
-                  <div className="text-xs font-bold text-amber-500">Datos del Cliente (Crédito)</div>
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2.5">
+                  <div className="text-xs font-bold text-amber-400">Datos del Cliente (Crédito)</div>
                   <div>
-                    <label className={`block text-[10px] mb-0.5 ${textSub}`}>Nombre y Apellido *</label>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Nombre y Apellido *</label>
                     <input 
                       type="text" 
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
                       placeholder="Ej. Juan Pérez"
-                      className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none ${bgInput}`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`block text-[10px] mb-0.5 ${textSub}`}>Cédula / RIF</label>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">Cédula / RIF</label>
                       <input 
                         type="text" 
                         value={clientDocument}
                         onChange={(e) => setClientDocument(e.target.value)}
                         placeholder="V-12345678"
-                        className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none ${bgInput}`}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className={`block text-[10px] mb-0.5 ${textSub}`}>Teléfono</label>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">Teléfono</label>
                       <input 
                         type="text" 
                         value={clientPhone}
                         onChange={(e) => setClientPhone(e.target.value)}
                         placeholder="0414-0000000"
-                        className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none ${bgInput}`}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <label className={`block text-xs font-medium mb-1 ${textSub}`}>Efectivo Recibido ($)</label>
-                  <div className={`flex justify-between items-center border rounded-xl px-3 py-2.5 ${subContainerBg}`}>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido ($)</label>
+                  <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
                     <input 
                       type="number" 
                       step="0.1"
                       value={cashGivenUSD}
                       onChange={(e) => setCashGivenUSD(e.target.value)}
                       placeholder="0.00"
-                      className={`bg-transparent focus:outline-none w-full text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}
+                      className="bg-transparent text-white focus:outline-none w-full text-sm"
                     />
                     <div className="text-right">
-                      <span className={`text-xs ${textSub}`}>Vuelto: <strong className="text-emerald-500">${Number(changeUSD || 0).toFixed(2)}</strong></span>
-                      <div className={`text-[10px] ${textSub}`}>Bs. {Number(changeBs || 0).toFixed(2)}</div>
+                      <span className="text-xs text-slate-500">Vuelto: <strong className="text-emerald-400">${Number(changeUSD || 0).toFixed(2)}</strong></span>
+                      <div className="text-[10px] text-slate-500">Bs. {Number(changeBs || 0).toFixed(2)}</div>
                     </div>
                   </div>
                 </div>
@@ -889,7 +865,7 @@ RESUMEN GENERAL:
             <div className="flex gap-3 pt-2">
               <button 
                 onClick={() => setIsCheckoutModalOpen(false)}
-                className={`flex-1 font-bold py-3 rounded-xl text-xs transition ${isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-700' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs transition"
               >
                 Cancelar
               </button>
@@ -906,33 +882,33 @@ RESUMEN GENERAL:
 
       {/* MODAL PARA REPONER STOCK */}
       {isRestockModalOpen && selectedProductForRestock && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`border rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 ${bgCard}`}>
-            <div className={`flex justify-between items-center border-b pb-3 ${borderCol}`}>
-              <h3 className={`text-lg font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Reponer Inventario</h3>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white">Reponer Inventario</h3>
               <button 
                 onClick={() => { setIsRestockModalOpen(false); setSelectedProductForRestock(null); }}
-                className={`p-2 rounded-xl text-xs ${textSub} hover:text-blue-500 ${isLight ? 'bg-slate-100' : 'bg-slate-800/60'}`}
+                className="text-slate-400 hover:text-white bg-slate-800/60 p-2 rounded-xl text-xs"
               >
                 ✕
               </button>
             </div>
 
-            <div className={`p-3 rounded-xl border text-xs space-y-1 ${subContainerBg}`}>
-              <div className={textSub}>Producto:</div>
-              <div className="font-bold text-blue-500 text-sm">{selectedProductForRestock.name}</div>
-              <div className={`${textSub} pt-1`}>Stock Actual: <strong className={isLight ? 'text-slate-900' : 'text-white'}>{selectedProductForRestock.stock} unidades</strong></div>
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
+              <div className="text-slate-400">Producto:</div>
+              <div className="font-bold text-blue-400 text-sm">{selectedProductForRestock.name}</div>
+              <div className="text-slate-400 pt-1">Stock Actual: <strong className="text-white">{selectedProductForRestock.stock} unidades</strong></div>
             </div>
 
             <form onSubmit={handleRestockSubmit} className="space-y-3">
               <div>
-                <label className={`block text-xs font-medium mb-1 ${textSub}`}>Cantidad a Agregar *</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Cantidad a Agregar *</label>
                 <input 
                   type="number" min="1" required
                   value={restockAmount}
                   onChange={(e) => setRestockAmount(e.target.value)}
                   placeholder="Ej. 24"
-                  className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 font-bold ${bgInput}`}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-bold"
                 />
               </div>
 
@@ -940,7 +916,7 @@ RESUMEN GENERAL:
                 <button 
                   type="button"
                   onClick={() => { setIsRestockModalOpen(false); setSelectedProductForRestock(null); }}
-                  className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition ${isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-700' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition"
                 >
                   Cancelar
                 </button>
@@ -961,21 +937,21 @@ RESUMEN GENERAL:
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Gestión de Inventario</h2>
-              <span className={`text-sm ${textSub}`}>Control de costos, márgenes y alertas</span>
+              <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
+              <span className="text-sm text-slate-400">Control de costos, márgenes y alertas</span>
             </div>
             
             <div className="flex items-center gap-3">
-              <div className={`flex border p-1 rounded-xl gap-1 ${subContainerBg}`}>
+              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
                 <button 
                   onClick={() => setInventoryFilterMode('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${inventoryFilterMode === 'all' ? 'bg-blue-600 text-white' : `${textSub} hover:text-blue-500`}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${inventoryFilterMode === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
                 >
                   Todos ({products.length})
                 </button>
                 <button 
                   onClick={() => setInventoryFilterMode('low')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${inventoryFilterMode === 'low' ? 'bg-red-600 text-white' : `${textSub} hover:text-blue-500`}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${inventoryFilterMode === 'low' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
                 >
                   ⚠️ Stock Bajo ({lowStockCount})
                 </button>
@@ -990,55 +966,55 @@ RESUMEN GENERAL:
             </div>
           </div>
 
-          <div className={`border p-6 rounded-2xl shadow-xl ${bgCard}`}>
-            <h3 className="text-lg font-semibold mb-4 text-blue-500">Registrar Nuevo Producto</h3>
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold mb-4 text-blue-400">Registrar Nuevo Producto</h3>
             <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="sm:col-span-2">
-                <label className={`block text-xs mb-1 ${textSub}`}>Nombre</label>
+                <label className="block text-xs text-slate-400 mb-1">Nombre</label>
                 <input 
                   type="text" required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Ej. Maltín Polar"
-                  className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 ${bgInput}`}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className={`block text-xs mb-1 ${textSub}`}>Costo ($)</label>
+                <label className="block text-xs text-slate-400 mb-1">Costo ($)</label>
                 <input 
                   type="number" step="0.01" required
                   value={newCostPrice}
                   onChange={(e) => setNewCostPrice(e.target.value)}
                   placeholder="0.00"
-                  className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 ${bgInput}`}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className={`block text-xs mb-1 ${textSub}`}>Venta ($)</label>
+                <label className="block text-xs text-slate-400 mb-1">Venta ($)</label>
                 <input 
                   type="number" step="0.01" required
                   value={newPrice}
                   onChange={(e) => setNewPrice(e.target.value)}
                   placeholder="0.00"
-                  className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 ${bgInput}`}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className={`block text-xs mb-1 ${textSub}`}>Stock</label>
+                <label className="block text-xs text-slate-400 mb-1">Stock</label>
                 <input 
                   type="number" required
                   value={newStock}
                   onChange={(e) => setNewStock(e.target.value)}
                   placeholder="0"
-                  className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 ${bgInput}`}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className={`block text-xs mb-1 ${textSub}`}>Categoría</label>
+                <label className="block text-xs text-slate-400 mb-1">Categoría</label>
                 <select 
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 ${bgInput}`}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 >
                   <option value="Comida">Comida</option>
                   <option value="Bebidas">Bebidas</option>
@@ -1051,9 +1027,9 @@ RESUMEN GENERAL:
                   type="checkbox" id="tax"
                   checked={newTaxable}
                   onChange={(e) => setNewTaxable(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-0"
+                  className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
                 />
-                <label htmlFor="tax" className={`text-xs font-medium cursor-pointer ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Aplica IVA (16%)</label>
+                <label htmlFor="tax" className="text-xs text-slate-300 font-medium cursor-pointer">Aplica IVA (16%)</label>
               </div>
               <div className="sm:col-span-2 lg:col-span-5 flex items-end">
                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition">
@@ -1063,10 +1039,10 @@ RESUMEN GENERAL:
             </form>
           </div>
 
-          <div className={`border rounded-2xl overflow-hidden shadow-xl ${bgCard}`}>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className={`border-b text-xs uppercase tracking-wider ${isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-slate-950/50 text-slate-400 border-slate-800'}`}>
+                <tr className="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase tracking-wider">
                   <th className="p-4">Producto</th>
                   <th className="p-4">Categoría</th>
                   <th className="p-4">Costo</th>
@@ -1077,10 +1053,10 @@ RESUMEN GENERAL:
                   <th className="p-4 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className={`divide-y text-sm ${isLight ? 'divide-slate-200' : 'divide-slate-800'}`}>
+              <tbody className="divide-y divide-slate-800 text-sm">
                 {inventoryProducts.length === 0 && (
                   <tr>
-                    <td colSpan={8} className={`text-center py-12 ${textSub}`}>
+                    <td colSpan={8} className="text-center py-12 text-slate-500">
                       No hay productos que mostrar en este filtro.
                     </td>
                   </tr>
@@ -1089,31 +1065,31 @@ RESUMEN GENERAL:
                   const margin = (prod.costPrice || 0) > 0 ? (((prod.price - prod.costPrice) / prod.costPrice) * 100).toFixed(0) : 0;
                   const isLow = prod.stock <= 5;
                   return (
-                    <tr key={prod.id} className={`transition ${isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/40'}`}>
-                      <td className={`p-4 font-medium flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    <tr key={prod.id} className="hover:bg-slate-800/40 transition">
+                      <td className="p-4 font-medium text-white flex items-center gap-2">
                         {prod.name}
                         {isLow && (
-                          <span className="bg-red-500/20 text-red-500 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                          <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
                             ⚠️ Stock Bajo
                           </span>
                         )}
                       </td>
-                      <td className="p-4"><span className="text-[10px] uppercase font-semibold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{prod.category}</span></td>
-                      <td className={`p-4 ${textSub}`}>${Number(prod.costPrice || 0).toFixed(2)}</td>
-                      <td className="p-4 font-bold text-blue-500">${Number(prod.price || 0).toFixed(2)}</td>
-                      <td className="p-4 text-emerald-500 font-semibold">{margin}%</td>
-                      <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded ${prod.taxable ? 'text-amber-500 bg-amber-500/10' : 'text-emerald-500 bg-emerald-500/10'}`}>{prod.taxable ? 'Gravado (16%)' : 'Exento'}</span></td>
-                      <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${isLow ? 'bg-red-500/20 text-red-500' : `${isLight ? 'bg-slate-100 text-slate-700' : 'bg-slate-800 text-slate-250'}`}`}>{prod.stock} un.</span></td>
+                      <td className="p-4"><span className="text-[10px] uppercase font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">{prod.category}</span></td>
+                      <td className="p-4 text-slate-400">${Number(prod.costPrice || 0).toFixed(2)}</td>
+                      <td className="p-4 font-bold text-blue-400">${Number(prod.price || 0).toFixed(2)}</td>
+                      <td className="p-4 text-emerald-400 font-semibold">{margin}%</td>
+                      <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded ${prod.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>{prod.taxable ? 'Gravado (16%)' : 'Exento'}</span></td>
+                      <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${isLow ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-200'}`}>{prod.stock} un.</span></td>
                       <td className="p-4 text-right space-x-2">
                         <button 
                           onClick={() => { setSelectedProductForRestock(prod); setIsRestockModalOpen(true); }} 
-                          className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
                         >
                           + Stock
                         </button>
                         <button 
                           onClick={() => deleteProduct(prod.id)} 
-                          className="bg-red-500/10 text-red-600 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                          className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
                         >
                           Eliminar
                         </button>
@@ -1132,55 +1108,55 @@ RESUMEN GENERAL:
         <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Módulo de Cuentas (Cobrar y Pagar)</h2>
-              <span className={`text-sm ${textSub}`}>Gestión unificada de créditos a clientes (Fiados) y deudas con proveedores</span>
+              <h2 className="text-2xl font-bold">Módulo de Cuentas (Cobrar y Pagar)</h2>
+              <span className="text-sm text-slate-400">Gestión unificada de créditos a clientes (Fiados) y deudas con proveedores</span>
             </div>
             <div className="flex gap-3">
-              <div className={`border px-4 py-2 rounded-xl text-right ${subContainerBg}`}>
-                <div className={`text-xs ${textSub}`}>Total x Cobrar:</div>
-                <div className="text-sm font-black text-amber-500">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
+              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+                <div className="text-xs text-slate-400">Total x Cobrar:</div>
+                <div className="text-sm font-black text-amber-400">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
               </div>
-              <div className={`border px-4 py-2 rounded-xl text-right ${subContainerBg}`}>
-                <div className={`text-xs ${textSub}`}>Total x Pagar:</div>
-                <div className="text-sm font-black text-red-500">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
+              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+                <div className="text-xs text-slate-400">Total x Pagar:</div>
+                <div className="text-sm font-black text-red-400">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className={`border rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between ${bgCard}`}>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
               <div>
-                <div className={`flex justify-between items-center border-b pb-3 mb-4 ${borderCol}`}>
-                  <h3 className="text-lg font-bold text-amber-500">📒 Cuentas por Cobrar (Clientes)</h3>
-                  <span className="text-xs bg-amber-500/10 text-amber-500 font-bold px-2 py-1 rounded">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                  <h3 className="text-lg font-bold text-amber-400">📒 Cuentas por Cobrar (Clientes)</h3>
+                  <span className="text-xs bg-amber-500/10 text-amber-400 font-bold px-2 py-1 rounded">
                     Pendientes: ${Number(pendingCreditsUSD || 0).toFixed(2)}
                   </span>
                 </div>
 
                 <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
                   {credits.length === 0 && (
-                    <div className={`text-center py-12 text-sm ${textSub}`}>
+                    <div className="text-center py-12 text-slate-500 text-sm">
                       No hay cuentas por cobrar registradas.
                     </div>
                   )}
                   {credits.map(credit => (
-                    <div key={credit.id} className={`border p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${subContainerBg}`}>
+                    <div key={credit.id} className="bg-slate-950 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>{credit.clientName}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${credit.status === 'Pendiente' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                          <span className="font-bold text-white text-sm">{credit.clientName}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${credit.status === 'Pendiente' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
                             {credit.status}
                           </span>
                         </div>
-                        <div className={`text-[11px] ${textSub}`}>
-                          Doc: <strong className={isLight ? 'text-slate-700' : 'text-slate-300'}>{credit.clientDocument}</strong> • Tel: <strong className={isLight ? 'text-slate-700' : 'text-slate-300'}>{credit.clientPhone}</strong>
+                        <div className="text-[11px] text-slate-400">
+                          Doc: <strong className="text-slate-300">{credit.clientDocument}</strong> • Tel: <strong className="text-slate-300">{credit.clientPhone}</strong>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
-                          <div className="text-sm font-bold text-amber-500">${Number(credit.totalDebtUSD || 0).toFixed(2)}</div>
-                          <div className="text-[10px] text-emerald-500">Bs. {Number(credit.totalDebtBs || 0).toFixed(2)}</div>
+                          <div className="text-sm font-bold text-amber-400">${Number(credit.totalDebtUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {Number(credit.totalDebtBs || 0).toFixed(2)}</div>
                         </div>
 
                         {credit.status === 'Pendiente' && (
@@ -1198,31 +1174,31 @@ RESUMEN GENERAL:
               </div>
             </div>
 
-            <div className={`border rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between ${bgCard}`}>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
               <div className="space-y-4">
-                <div className={`flex justify-between items-center border-b pb-3 ${borderCol}`}>
-                  <h3 className="text-lg font-bold text-red-500">📥 Cuentas por Pagar (Proveedores)</h3>
-                  <span className="text-xs bg-red-500/10 text-red-500 font-bold px-2 py-1 rounded">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <h3 className="text-lg font-bold text-red-400">📥 Cuentas por Pagar (Proveedores)</h3>
+                  <span className="text-xs bg-red-500/10 text-red-400 font-bold px-2 py-1 rounded">
                     Pendientes: ${Number(pendingPayablesUSD || 0).toFixed(2)}
                   </span>
                 </div>
 
-                <form onSubmit={handleAddPayable} className={`p-4 rounded-xl border space-y-3 ${subContainerBg}`}>
-                  <div className="text-xs font-bold text-blue-500">Registrar Nuevo Proveedor / Deuda</div>
+                <form onSubmit={handleAddPayable} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <div className="text-xs font-bold text-blue-400">Registrar Nuevo Proveedor / Deuda</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input 
                       type="text" required
                       value={newProviderName}
                       onChange={(e) => setNewProviderName(e.target.value)}
                       placeholder="Nombre Proveedor *"
-                      className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none ${bgInput}`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                     />
                     <input 
                       type="text"
                       value={newProviderDoc}
                       onChange={(e) => setNewProviderDoc(e.target.value)}
                       placeholder="RIF / Cédula"
-                      className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none ${bgInput}`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1231,21 +1207,21 @@ RESUMEN GENERAL:
                       value={newPayableDesc}
                       onChange={(e) => setNewPayableDesc(e.target.value)}
                       placeholder="Concepto / Factura"
-                      className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none sm:col-span-1 ${bgInput}`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none sm:col-span-1"
                     />
                     <input 
                       type="number" step="0.01" required
                       value={newPayableAmountUSD}
                       onChange={(e) => setNewPayableAmountUSD(e.target.value)}
                       placeholder="Monto USD ($) *"
-                      className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none ${bgInput}`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                     />
                     <input 
                       type="text"
                       value={newDueDate}
                       onChange={(e) => setNewDueDate(e.target.value)}
                       placeholder="Fecha Límite"
-                      className={`w-full border rounded-lg px-3 py-2 text-xs focus:outline-none ${bgInput}`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                     />
                   </div>
                   <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-xs transition">
@@ -1255,28 +1231,28 @@ RESUMEN GENERAL:
 
                 <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
                   {payables.length === 0 && (
-                    <div className={`text-center py-6 text-xs ${textSub}`}>
+                    <div className="text-center py-6 text-slate-500 text-xs">
                       No hay cuentas por pagar registradas.
                     </div>
                   )}
                   {payables.map(payable => (
-                    <div key={payable.id} className={`border p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${subContainerBg}`}>
+                    <div key={payable.id} className="bg-slate-950 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>{payable.providerName}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${payable.status === 'Pendiente' ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                          <span className="font-bold text-white text-sm">{payable.providerName}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${payable.status === 'Pendiente' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
                             {payable.status}
                           </span>
                         </div>
-                        <div className={`text-[11px] ${textSub}`}>
-                          Concepto: <strong className={isLight ? 'text-slate-700' : 'text-slate-300'}>{payable.description}</strong> • Vence: <strong className="text-amber-500">{payable.dueDate}</strong>
+                        <div className="text-[11px] text-slate-400">
+                          Concepto: <strong className="text-slate-300">{payable.description}</strong> • Vence: <strong className="text-amber-400">{payable.dueDate}</strong>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
-                          <div className="text-sm font-bold text-red-500">${Number(payable.totalDebtUSD || 0).toFixed(2)}</div>
-                          <div className="text-[10px] text-emerald-500">Bs. {Number(payable.totalDebtBs || 0).toFixed(2)}</div>
+                          <div className="text-sm font-bold text-red-400">${Number(payable.totalDebtUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {Number(payable.totalDebtBs || 0).toFixed(2)}</div>
                         </div>
 
                         {payable.status === 'Pendiente' && (
@@ -1302,8 +1278,8 @@ RESUMEN GENERAL:
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Reportes y Cierre de Caja (Z) Detallado</h2>
-              <span className={`text-sm ${textSub}`}>Auditoría por método de pago y flujos de caja</span>
+              <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z) Detallado</h2>
+              <span className="text-sm text-slate-400">Auditoría por método de pago y flujos de caja</span>
             </div>
             {salesHistory.length > 0 && (
               <button 
@@ -1316,48 +1292,48 @@ RESUMEN GENERAL:
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className={`border p-5 rounded-2xl ${bgCard}`}>
-              <div className={`text-xs mb-1 ${textSub}`}>Ingresos Totales en Caja</div>
-              <div className="text-2xl font-black text-blue-500">${Number(totalSalesRevenueUSD || 0).toFixed(2)}</div>
-              <div className="text-xs text-emerald-500 mt-1 font-semibold">Bs. {Number(totalSalesRevenueBs || 0).toFixed(2)}</div>
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+              <div className="text-xs text-slate-400 mb-1">Ingresos Totales en Caja</div>
+              <div className="text-2xl font-black text-blue-400">${Number(totalSalesRevenueUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-emerald-400 mt-1 font-semibold">Bs. {Number(totalSalesRevenueBs || 0).toFixed(2)}</div>
             </div>
-            <div className={`border p-5 rounded-2xl ${bgCard}`}>
-              <div className={`text-xs mb-1 ${textSub}`}>Cuentas x Cobrar Pendientes</div>
-              <div className="text-2xl font-black text-amber-500">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
-              <div className={`text-xs mt-1 ${textSub}`}>Fiados a clientes</div>
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+              <div className="text-xs text-slate-400 mb-1">Cuentas x Cobrar Pendientes</div>
+              <div className="text-2xl font-black text-amber-400">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">Fiados a clientes</div>
             </div>
-            <div className={`border p-5 rounded-2xl ${bgCard}`}>
-              <div className={`text-xs mb-1 ${textSub}`}>Cuentas x Pagar (Proveedores)</div>
-              <div className="text-2xl font-black text-red-500">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
-              <div className={`text-xs mt-1 ${textSub}`}>Deudas pendientes</div>
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+              <div className="text-xs text-slate-400 mb-1">Cuentas x Pagar (Proveedores)</div>
+              <div className="text-2xl font-black text-red-400">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">Deudas pendientes</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className={`border p-4 rounded-xl ${bgCard}`}>
-              <div className="text-xs text-blue-500 font-bold mb-1">💵 Efectivo USD</div>
-              <div className={`text-lg font-black ${isLight ? 'text-slate-900' : 'text-white'}`}>${Number(statsEfectivoUSD.totalUSD || 0).toFixed(2)}</div>
-              <div className={`text-xs mt-1 ${textSub}`}>{statsEfectivoUSD.count} operaciones</div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-blue-400 font-bold mb-1">💵 Efectivo USD</div>
+              <div className="text-lg font-black">${Number(statsEfectivoUSD.totalUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsEfectivoUSD.count} operaciones</div>
             </div>
-            <div className={`border p-4 rounded-xl ${bgCard}`}>
-              <div className="text-xs text-emerald-500 font-bold mb-1">📱 Pago Móvil</div>
-              <div className={`text-lg font-black ${isLight ? 'text-slate-900' : 'text-white'}`}>Bs. {Number(statsPagoMovil.totalBs || 0).toFixed(2)}</div>
-              <div className={`text-xs mt-1 ${textSub}`}>{statsPagoMovil.count} operaciones</div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-emerald-400 font-bold mb-1">📱 Pago Móvil</div>
+              <div className="text-lg font-black">Bs. {Number(statsPagoMovil.totalBs || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsPagoMovil.count} operaciones</div>
             </div>
-            <div className={`border p-4 rounded-xl ${bgCard}`}>
-              <div className="text-xs text-purple-500 font-bold mb-1">🌐 Zelle</div>
-              <div className={`text-lg font-black ${isLight ? 'text-slate-900' : 'text-white'}`}>${Number(statsZelle.totalUSD || 0).toFixed(2)}</div>
-              <div className={`text-xs mt-1 ${textSub}`}>{statsZelle.count} operaciones</div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-purple-400 font-bold mb-1">🌐 Zelle</div>
+              <div className="text-lg font-black">${Number(statsZelle.totalUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsZelle.count} operaciones</div>
             </div>
-            <div className={`border p-4 rounded-xl ${bgCard}`}>
-              <div className="text-xs text-amber-500 font-bold mb-1">🪙 Binance Pay</div>
-              <div className={`text-lg font-black ${isLight ? 'text-slate-900' : 'text-white'}`}>${Number(statsBinance.totalUSD || 0).toFixed(2)}</div>
-              <div className={`text-xs mt-1 ${textSub}`}>{statsBinance.count} operaciones</div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-amber-400 font-bold mb-1">🪙 Binance Pay</div>
+              <div className="text-lg font-black">${Number(statsBinance.totalUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsBinance.count} operaciones</div>
             </div>
-            <div className={`border p-4 rounded-xl ${bgCard}`}>
-              <div className="text-xs text-teal-500 font-bold mb-1">📒 Créditos</div>
-              <div className={`text-lg font-black ${isLight ? 'text-slate-900' : 'text-white'}`}>${Number(statsCredito.totalUSD || 0).toFixed(2)}</div>
-              <div className={`text-xs mt-1 ${textSub}`}>{statsCredito.count} operaciones</div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="text-xs text-teal-400 font-bold mb-1">📒 Créditos</div>
+              <div className="text-lg font-black">${Number(statsCredito.totalUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsCredito.count} operaciones</div>
             </div>
           </div>
         </main>
