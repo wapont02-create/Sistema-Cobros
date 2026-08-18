@@ -250,7 +250,6 @@ export default function DashboardPOS() {
       });
       const data = await res.json();
       if (data.success) {
-        // Recargar productos desde la base de datos
         const prodRes = await fetch('/api/products');
         const prodData = await prodRes.json();
         if (Array.isArray(prodData)) setProducts(prodData);
@@ -307,8 +306,8 @@ export default function DashboardPOS() {
     document.body.removeChild(link);
   };
 
-  const subtotalUSD = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const totalIvaUSD = cart.reduce((sum, item) => item.taxable ? sum + (item.price * item.quantity * IVA_RATE) : sum, 0);
+  const subtotalUSD = cart.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
+  const totalIvaUSD = cart.reduce((sum, item) => item.taxable ? sum + ((item.price || 0) * item.quantity * IVA_RATE) : sum, 0);
   const totalUSD = subtotalUSD + totalIvaUSD;
   const totalBs = totalUSD * exchangeRate;
 
@@ -346,7 +345,6 @@ export default function DashboardPOS() {
       const result = await res.json();
 
       if (result.success) {
-        // Actualizar stock localmente y recargar ventas
         setProducts(prev => prev.map(prod => {
           const cartItem = cart.find(c => c.id === prod.id);
           if (cartItem) {
@@ -372,9 +370,9 @@ export default function DashboardPOS() {
             saleId: result.saleId,
           };
           setCredits(prev => [newCredit, ...prev]);
-          alert(`¡Crédito registrado con éxito para ${clientName}!\nTotal: $${totalUSD.toFixed(2)} (Bs. ${totalBs.toFixed(2)})`);
+          alert(`¡Crédito registrado con éxito para ${clientName}!\nTotal: $${Number(totalUSD || 0).toFixed(2)} (Bs. ${Number(totalBs || 0).toFixed(2)})`);
         } else {
-          alert(`¡Pago procesado con éxito en la nube!\nMétodo: ${paymentMethod}\nVuelto: $${changeUSD.toFixed(2)} (Bs. ${changeBs.toFixed(2)})`);
+          alert(`¡Pago procesado con éxito en la nube!\nMétodo: ${paymentMethod}\nVuelto: $${Number(changeUSD || 0).toFixed(2)} (Bs. ${Number(changeBs || 0).toFixed(2)})`);
         }
 
         setCart([]);
@@ -427,18 +425,18 @@ export default function DashboardPOS() {
     alert('¡Cuenta por pagar saldada con éxito!');
   };
 
-  const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + c.totalDebtUSD, 0);
-  const pendingPayablesUSD = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + p.totalDebtUSD, 0);
+  const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + (c.totalDebtUSD || 0), 0);
+  const pendingPayablesUSD = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + (p.totalDebtUSD || 0), 0);
 
-  const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + s.totalUSD, 0);
-  const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + s.totalBs, 0);
-  const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + s.ivaUSD, 0);
+  const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + Number(s.totalUSD || 0), 0);
+  const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + Number(s.totalBs || 0), 0);
+  const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + Number(s.ivaUSD || 0), 0);
 
   const getMethodStats = (method: PaymentMethodType) => {
     const filtered = salesHistory.filter(s => s.paymentMethod === method);
     const count = filtered.length;
-    const totalUSD = filtered.reduce((sum, s) => sum + s.totalUSD, 0);
-    const totalBs = filtered.reduce((sum, s) => sum + s.totalBs, 0);
+    const totalUSD = filtered.reduce((sum, s) => sum + Number(s.totalUSD || 0), 0);
+    const totalBs = filtered.reduce((sum, s) => sum + Number(s.totalBs || 0), 0);
     return { count, totalUSD, totalBs };
   };
 
@@ -458,11 +456,11 @@ Tasa BCV Aplicada: Bs. ${exchangeRate}
 ----------------------------------------
 RESUMEN GENERAL:
 - Transacciones Totales: ${salesHistory.length}
-- Ingresos Totales (USD): $${totalSalesRevenueUSD.toFixed(2)}
-- Ingresos Totales (Bs.): Bs. ${totalSalesRevenueBs.toFixed(2)}
-- IVA Total Recaudado (16%): $${totalTaxesCollected.toFixed(2)}
-- Cuentas por Cobrar Pendientes: $${pendingCreditsUSD.toFixed(2)}
-- Cuentas por Pagar Pendientes: $${pendingPayablesUSD.toFixed(2)}
+- Ingresos Totales (USD): $${Number(totalSalesRevenueUSD || 0).toFixed(2)}
+- Ingresos Totales (Bs.): Bs. ${Number(totalSalesRevenueBs || 0).toFixed(2)}
+- IVA Total Recaudado (16%): $${Number(totalTaxesCollected || 0).toFixed(2)}
+- Cuentas por Cobrar Pendientes: $${Number(pendingCreditsUSD || 0).toFixed(2)}
+- Cuentas por Pagar Pendientes: $${Number(pendingPayablesUSD || 0).toFixed(2)}
 ----------------------------------------
     `.trim();
 
@@ -607,7 +605,7 @@ RESUMEN GENERAL:
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[550px] overflow-y-auto pr-1">
               {filteredProducts.map(product => {
-                const priceBs = product.price * exchangeRate;
+                const priceBs = (product.price || 0) * exchangeRate;
                 const isOut = product.stock <= 0;
                 return (
                   <button 
@@ -632,8 +630,8 @@ RESUMEN GENERAL:
                     </div>
                     <div className="mt-4 flex justify-between items-end">
                       <div>
-                        <div className="font-bold text-blue-400 text-base">${product.price.toFixed(2)}</div>
-                        <div className="text-[10px] text-slate-500">Bs. {priceBs.toFixed(2)}</div>
+                        <div className="font-bold text-blue-400 text-base">${Number(product.price || 0).toFixed(2)}</div>
+                        <div className="text-[10px] text-slate-500">Bs. {Number(priceBs || 0).toFixed(2)}</div>
                       </div>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isOut ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-300'}`}>
                         Stk: {product.stock}
@@ -659,13 +657,13 @@ RESUMEN GENERAL:
                   </div>
                 )}
                 {cart.map(item => {
-                  const itemTotalUSD = item.price * item.quantity;
+                  const itemTotalUSD = (item.price || 0) * item.quantity;
                   const itemTotalBs = itemTotalUSD * exchangeRate;
                   return (
                     <div key={item.id} className="bg-slate-950/60 border border-slate-800/60 p-3 rounded-xl flex justify-between items-center">
                       <div className="flex-1 pr-2">
                         <div className="text-sm font-medium text-slate-200">{item.name}</div>
-                        <div className="text-xs text-blue-400">${item.price.toFixed(2)} c/u</div>
+                        <div className="text-xs text-blue-400">${Number(item.price || 0).toFixed(2)} c/u</div>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -676,8 +674,8 @@ RESUMEN GENERAL:
                         </div>
 
                         <div className="text-right w-20">
-                          <div className="text-sm font-bold">${itemTotalUSD.toFixed(2)}</div>
-                          <div className="text-[10px] text-slate-500">Bs. {itemTotalBs.toFixed(2)}</div>
+                          <div className="text-sm font-bold">${Number(itemTotalUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-slate-500">Bs. {Number(itemTotalBs || 0).toFixed(2)}</div>
                         </div>
 
                         <button onClick={() => removeFromCart(item.id)} className="text-slate-500 hover:text-red-400 text-xs ml-1">✕</button>
@@ -692,17 +690,17 @@ RESUMEN GENERAL:
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1.5 text-sm">
                 <div className="flex justify-between text-slate-400">
                   <span>Subtotal:</span>
-                  <span>${subtotalUSD.toFixed(2)}</span>
+                  <span>${Number(subtotalUSD || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>IVA (16%):</span>
-                  <span>${totalIvaUSD.toFixed(2)}</span>
+                  <span>${Number(totalIvaUSD || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-baseline pt-2 border-t border-slate-800">
                   <span className="font-bold text-white">Total a Pagar:</span>
                   <div className="text-right">
-                    <div className="text-xl font-black text-blue-400">${totalUSD.toFixed(2)}</div>
-                    <div className="text-xs text-emerald-400 font-semibold">Bs. {totalBs.toFixed(2)}</div>
+                    <div className="text-xl font-black text-blue-400">${Number(totalUSD || 0).toFixed(2)}</div>
+                    <div className="text-xs text-emerald-400 font-semibold">Bs. {Number(totalBs || 0).toFixed(2)}</div>
                   </div>
                 </div>
               </div>
@@ -743,11 +741,11 @@ RESUMEN GENERAL:
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
               <div>
                 <div className="text-xs text-slate-400">Total a Cancelar</div>
-                <div className="text-xl font-black text-blue-400">${totalUSD.toFixed(2)}</div>
+                <div className="text-xl font-black text-blue-400">${Number(totalUSD || 0).toFixed(2)}</div>
               </div>
               <div className="text-right">
                 <div className="text-xs text-slate-400">Equivalente BCV</div>
-                <div className="text-sm font-bold text-emerald-400">Bs. {totalBs.toFixed(2)}</div>
+                <div className="text-sm font-bold text-emerald-400">Bs. {Number(totalBs || 0).toFixed(2)}</div>
               </div>
             </div>
 
@@ -816,8 +814,8 @@ RESUMEN GENERAL:
                       className="bg-transparent text-white focus:outline-none w-full text-sm"
                     />
                     <div className="text-right">
-                      <span className="text-xs text-slate-500">Vuelto: <strong className="text-emerald-400">${changeUSD.toFixed(2)}</strong></span>
-                      <div className="text-[10px] text-slate-500">Bs. {changeBs.toFixed(2)}</div>
+                      <span className="text-xs text-slate-500">Vuelto: <strong className="text-emerald-400">${Number(changeUSD || 0).toFixed(2)}</strong></span>
+                      <div className="text-[10px] text-slate-500">Bs. {Number(changeBs || 0).toFixed(2)}</div>
                     </div>
                   </div>
                 </div>
@@ -1024,7 +1022,7 @@ RESUMEN GENERAL:
                   </tr>
                 )}
                 {inventoryProducts.map(prod => {
-                  const margin = prod.costPrice > 0 ? (((prod.price - prod.costPrice) / prod.costPrice) * 100).toFixed(0) : 0;
+                  const margin = (prod.costPrice || 0) > 0 ? (((prod.price - prod.costPrice) / prod.costPrice) * 100).toFixed(0) : 0;
                   const isLow = prod.stock <= 5;
                   return (
                     <tr key={prod.id} className="hover:bg-slate-800/40 transition">
@@ -1037,8 +1035,8 @@ RESUMEN GENERAL:
                         )}
                       </td>
                       <td className="p-4"><span className="text-[10px] uppercase font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">{prod.category}</span></td>
-                      <td className="p-4 text-slate-400">${prod.costPrice.toFixed(2)}</td>
-                      <td className="p-4 font-bold text-blue-400">${prod.price.toFixed(2)}</td>
+                      <td className="p-4 text-slate-400">${Number(prod.costPrice || 0).toFixed(2)}</td>
+                      <td className="p-4 font-bold text-blue-400">${Number(prod.price || 0).toFixed(2)}</td>
                       <td className="p-4 text-emerald-400 font-semibold">{margin}%</td>
                       <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded ${prod.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>{prod.taxable ? 'Gravado (16%)' : 'Exento'}</span></td>
                       <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${isLow ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-200'}`}>{prod.stock} un.</span></td>
@@ -1076,11 +1074,11 @@ RESUMEN GENERAL:
             <div className="flex gap-3">
               <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
                 <div className="text-xs text-slate-400">Total x Cobrar:</div>
-                <div className="text-sm font-black text-amber-400">${pendingCreditsUSD.toFixed(2)}</div>
+                <div className="text-sm font-black text-amber-400">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
               </div>
               <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
                 <div className="text-xs text-slate-400">Total x Pagar:</div>
-                <div className="text-sm font-black text-red-400">${pendingPayablesUSD.toFixed(2)}</div>
+                <div className="text-sm font-black text-red-400">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
               </div>
             </div>
           </div>
@@ -1091,7 +1089,7 @@ RESUMEN GENERAL:
                 <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
                   <h3 className="text-lg font-bold text-amber-400">📒 Cuentas por Cobrar (Clientes)</h3>
                   <span className="text-xs bg-amber-500/10 text-amber-400 font-bold px-2 py-1 rounded">
-                    Pendientes: ${pendingCreditsUSD.toFixed(2)}
+                    Pendientes: ${Number(pendingCreditsUSD || 0).toFixed(2)}
                   </span>
                 </div>
 
@@ -1117,8 +1115,8 @@ RESUMEN GENERAL:
 
                       <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
-                          <div className="text-sm font-bold text-amber-400">${credit.totalDebtUSD.toFixed(2)}</div>
-                          <div className="text-[10px] text-emerald-400">Bs. {credit.totalDebtBs.toFixed(2)}</div>
+                          <div className="text-sm font-bold text-amber-400">${Number(credit.totalDebtUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {Number(credit.totalDebtBs || 0).toFixed(2)}</div>
                         </div>
 
                         {credit.status === 'Pendiente' && (
@@ -1141,7 +1139,7 @@ RESUMEN GENERAL:
                 <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                   <h3 className="text-lg font-bold text-red-400">📥 Cuentas por Pagar (Proveedores)</h3>
                   <span className="text-xs bg-red-500/10 text-red-400 font-bold px-2 py-1 rounded">
-                    Pendientes: ${pendingPayablesUSD.toFixed(2)}
+                    Pendientes: ${Number(pendingPayablesUSD || 0).toFixed(2)}
                   </span>
                 </div>
 
@@ -1213,8 +1211,8 @@ RESUMEN GENERAL:
 
                       <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
-                          <div className="text-sm font-bold text-red-400">${payable.totalDebtUSD.toFixed(2)}</div>
-                          <div className="text-[10px] text-emerald-400">Bs. {payable.totalDebtBs.toFixed(2)}</div>
+                          <div className="text-sm font-bold text-red-400">${Number(payable.totalDebtUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {Number(payable.totalDebtBs || 0).toFixed(2)}</div>
                         </div>
 
                         {payable.status === 'Pendiente' && (
@@ -1256,17 +1254,17 @@ RESUMEN GENERAL:
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
               <div className="text-xs text-slate-400 mb-1">Ingresos Totales en Caja</div>
-              <div className="text-2xl font-black text-blue-400">${totalSalesRevenueUSD.toFixed(2)}</div>
-              <div className="text-xs text-emerald-400 mt-1 font-semibold">Bs. {totalSalesRevenueBs.toFixed(2)}</div>
+              <div className="text-2xl font-black text-blue-400">${Number(totalSalesRevenueUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-emerald-400 mt-1 font-semibold">Bs. {Number(totalSalesRevenueBs || 0).toFixed(2)}</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
               <div className="text-xs text-slate-400 mb-1">Cuentas x Cobrar Pendientes</div>
-              <div className="text-2xl font-black text-amber-400">${pendingCreditsUSD.toFixed(2)}</div>
+              <div className="text-2xl font-black text-amber-400">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">Fiados a clientes</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
               <div className="text-xs text-slate-400 mb-1">Cuentas x Pagar (Proveedores)</div>
-              <div className="text-2xl font-black text-red-400">${pendingPayablesUSD.toFixed(2)}</div>
+              <div className="text-2xl font-black text-red-400">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">Deudas pendientes</div>
             </div>
           </div>
@@ -1274,27 +1272,27 @@ RESUMEN GENERAL:
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-blue-400 font-bold mb-1">💵 Efectivo USD</div>
-              <div className="text-lg font-black">${statsEfectivoUSD.totalUSD.toFixed(2)}</div>
+              <div className="text-lg font-black">${Number(statsEfectivoUSD.totalUSD || 0).toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">{statsEfectivoUSD.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-emerald-400 font-bold mb-1">📱 Pago Móvil</div>
-              <div className="text-lg font-black">Bs. {statsPagoMovil.totalBs.toFixed(2)}</div>
+              <div className="text-lg font-black">Bs. {Number(statsPagoMovil.totalBs || 0).toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">{statsPagoMovil.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-purple-400 font-bold mb-1">🌐 Zelle</div>
-              <div className="text-lg font-black">${statsZelle.totalUSD.toFixed(2)}</div>
+              <div className="text-lg font-black">${Number(statsZelle.totalUSD || 0).toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">{statsZelle.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-amber-400 font-bold mb-1">🪙 Binance Pay</div>
-              <div className="text-lg font-black">${statsBinance.totalUSD.toFixed(2)}</div>
+              <div className="text-lg font-black">${Number(statsBinance.totalUSD || 0).toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">{statsBinance.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-teal-400 font-bold mb-1">📒 Créditos</div>
-              <div className="text-lg font-black">${statsCredito.totalUSD.toFixed(2)}</div>
+              <div className="text-lg font-black">${Number(statsCredito.totalUSD || 0).toFixed(2)}</div>
               <div className="text-xs text-slate-500 mt-1">{statsCredito.count} operaciones</div>
             </div>
           </div>
