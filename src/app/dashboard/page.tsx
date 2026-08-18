@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import RolesManagerModule from '../../components/RolesManagerModule';
-import { getRoles, getUsers } from '../../utils/rolesManager';
+import { getRoles, getUsers } from '../../util/rolesManager';
 
 type Product = { 
   id: number; 
@@ -58,6 +58,10 @@ type PayableAccount = {
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
+  // 1. Control de hidratación para evitar errores de renderizado en cliente/servidor (#418)
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
+
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -90,19 +94,26 @@ export default function DashboardPOS() {
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
-  // Cargar productos y ventas desde las APIs de la nube al iniciar
+  // 2. Carga segura de datos desde las APIs con manejo de errores
   useEffect(() => {
     async function loadCloudData() {
       try {
-        const prodRes = await fetch('/api/products');
-        const prodData = await prodRes.json();
-        if (Array.isArray(prodData)) setProducts(prodData);
-
-        const salesRes = await fetch('/api/sales');
-        const salesData = await salesRes.json();
-        if (Array.isArray(salesData)) setSalesHistory(salesData);
+        const [prodRes, salesRes] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/sales')
+        ]);
+        
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          setProducts(Array.isArray(prodData) ? prodData : []);
+        }
+        
+        if (salesRes.ok) {
+          const salesData = await salesRes.json();
+          setSalesHistory(Array.isArray(salesData) ? salesData : []);
+        }
       } catch (error) {
-        console.error("Error al sincronizar datos con la nube:", error);
+        console.error("Error al sincronizar datos:", error);
       }
     }
     loadCloudData();
@@ -489,6 +500,9 @@ RESUMEN GENERAL:
   });
 
   const lowStockCount = products.filter(p => p.stock <= 5).length;
+
+  // 3. Renderizado condicional mientras se monta el componente
+  if (!isMounted) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col relative">
@@ -1305,4 +1319,4 @@ RESUMEN GENERAL:
       )}
     </div>
   );
-}
+}[cite: 3]
