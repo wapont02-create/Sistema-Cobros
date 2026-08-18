@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function LandingPage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     if (darkMode) {
@@ -18,7 +18,7 @@ export default function LandingPage() {
       {/* Barra de navegación */}
       <header className={`max-w-7xl mx-auto w-full px-6 py-6 flex justify-between items-center border-b transition-colors duration-300 ${darkMode ? 'border-slate-900' : 'border-slate-200'}`}>
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-black text-blue-500 tracking-wider">⚡ POS Enterprise Cloud</span>
+          <span className="text-2xl font-black text-blue-600 tracking-wider">⚡ POS Enterprise Venezuela</span>
         </div>
         <div className="flex items-center gap-4">
           <button 
@@ -46,11 +46,11 @@ export default function LandingPage() {
 
       {/* Hero Principal */}
       <main className="max-w-6xl mx-auto px-6 py-16 text-center flex flex-col items-center">
-        <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold px-4 py-1.5 rounded-full uppercase tracking-wider mb-6">
+        <span className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-xs font-semibold px-4 py-1.5 rounded-full uppercase tracking-wider mb-6">
           🇻🇪 Diseñado para hacer crecer tu negocio sin límites
         </span>
         <h1 className="text-4xl sm:text-7xl font-extrabold tracking-tight leading-tight mb-6 max-w-4xl">
-          El motor que tu comercio merece: <span className="text-blue-500">Punto de Venta y Tu Propia Web Corporativa</span>
+          El motor que tu comercio merece: <span className="text-blue-600">Punto de Venta y Tu Propia Web Corporativa</span>
         </h1>
         <p className={`text-lg sm:text-xl max-w-3xl mb-10 leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
           Imagina tener el control absoluto de tus ventas en dólares y bolívares con tasa BCV, gestionar tu inventario al vuelo y, al mismo tiempo, proyectar una imagen profesional imbatible con una página web corporativa propia para tu marca. ¡Haz que tus clientes se enamoren de tu negocio desde el primer clic!
@@ -68,12 +68,12 @@ export default function LandingPage() {
         {/* Sección Especial: Página Web Corporativa */}
         <div className={`w-full border rounded-3xl p-8 sm:p-12 mb-16 text-left grid grid-cols-1 lg:grid-cols-2 gap-10 items-center transition-colors duration-300 ${darkMode ? 'bg-gradient-to-br from-blue-950/40 via-slate-900/60 to-slate-950 border-blue-500/30' : 'bg-gradient-to-br from-blue-50 via-white to-blue-50/50 border-blue-200 shadow-xl'}`}>
           <div>
-            <span className="bg-blue-500/10 text-blue-500 border border-blue-500/20 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+            <span className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
               🌐 Presencia Digital Imparable
             </span>
             <h3 className="text-2xl sm:text-4xl font-extrabold mt-4 mb-4">Tu negocio con una Página Web Corporativa de Alto Impacto</h3>
             <p className={`text-sm sm:text-base leading-relaxed mb-6 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-              Hoy en día, un negocio que no tiene presencia en internet pierde clientes frente a la competencia. Con nuestra plataforma, no solo facturas en tu tienda física, sino que impulsas una **página web profesional y moderna** para tu marca, ideal para mostrar tus servicios, catálogos, ubicación y conectar de inmediato con nuevos compradores.
+              Hoy en día, un negocio que no tiene presencia en internet pierde clientes frente a la competencia. Con nuestra plataforma, no solo facturas en tu tienda física, sino que impulsas una <strong className="text-blue-600">página web profesional y moderna</strong> para tu marca, ideal para mostrar tus servicios, catálogos, ubicación y conectar de inmediato con nuevos compradores.
             </p>
             <ul className={`space-y-2.5 text-sm font-medium ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
               <li className="flex items-center gap-2">✨ Diseño elegante, rápido y adaptable a celulares (Responsive)</li>
@@ -100,37 +100,37 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className={`border p-8 rounded-2xl transition ${darkMode ? 'bg-slate-900/60 border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 shadow-md hover:border-blue-400'}`}>
               <div className="text-3xl mb-4">💱</div>
-              <div className="text-blue-500 font-bold text-xl mb-2">Módulo Multi-Moneda & BCV</div>
+              <div className="text-blue-600 font-bold text-xl mb-2">Módulo Multi-Moneda & BCV</div>
               <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Sincronización automática de la tasa oficial del BCV. Realiza conversiones exactas y transparentes entre Dólares ($) y Bolívares (Bs.).</p>
             </div>
 
             <div className={`border p-8 rounded-2xl transition ${darkMode ? 'bg-slate-900/60 border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 shadow-md hover:border-blue-400'}`}>
               <div className="text-3xl mb-4">💳</div>
-              <div className="text-blue-500 font-bold text-xl mb-2">Medios de Pago Venezolanos</div>
+              <div className="text-blue-600 font-bold text-xl mb-2">Medios de Pago Venezolanos</div>
               <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Acepta sin enredos Efectivo USD, Pago Móvil, Zelle, Binance Pay y administra cómodamente tus créditos o cuentas por cobrar.</p>
             </div>
 
             <div className={`border p-8 rounded-2xl transition ${darkMode ? 'bg-slate-900/60 border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 shadow-md hover:border-blue-400'}`}>
               <div className="text-3xl mb-4">🛡️</div>
-              <div className="text-blue-500 font-bold text-xl mb-2">Control de Roles y Permisos</div>
+              <div className="text-blue-600 font-bold text-xl mb-2">Control de Roles y Permisos</div>
               <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Protege tu dinero e inventario asignando accesos específicos para cajeros, administradores y personal de almacén con total seguridad.</p>
             </div>
 
             <div className={`border p-8 rounded-2xl transition ${darkMode ? 'bg-slate-900/60 border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 shadow-md hover:border-blue-400'}`}>
               <div className="text-3xl mb-4">📦</div>
-              <div className="text-blue-500 font-bold text-xl mb-2">Inventario en Tiempo Real</div>
+              <div className="text-blue-600 font-bold text-xl mb-2">Inventario en Tiempo Real</div>
               <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>El stock se descuenta automáticamente con cada venta. Recibe alertas de productos agotados y mantén tu negocio al día.</p>
             </div>
 
             <div className={`border p-8 rounded-2xl transition ${darkMode ? 'bg-slate-900/60 border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 shadow-md hover:border-blue-400'}`}>
               <div className="text-3xl mb-4">📊</div>
-              <div className="text-blue-500 font-bold text-xl mb-2">Cierres de Caja & Reportes Z</div>
+              <div className="text-blue-600 font-bold text-xl mb-2">Cierres de Caja & Reportes Z</div>
               <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Audita tus ingresos diarios desglosados por método de pago, calcula márgenes de ganancia y supervisa el flujo de caja sin dolores de cabeza.</p>
             </div>
 
             <div className={`border p-8 rounded-2xl transition ${darkMode ? 'bg-slate-900/60 border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 shadow-md hover:border-blue-400'}`}>
               <div className="text-3xl mb-4">☁️</div>
-              <div className="text-blue-500 font-bold text-xl mb-2">Nube Segura y Confiable</div>
+              <div className="text-blue-600 font-bold text-xl mb-2">Nube Segura y Confiable</div>
               <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Tus datos están protegidos y respaldados. Accede desde cualquier computadora, tablet o teléfono con velocidad óptima.</p>
             </div>
           </div>
@@ -153,8 +153,9 @@ export default function LandingPage() {
 
       {/* Pie de página */}
       <footer className={`border-t py-8 text-center text-sm transition-colors duration-300 ${darkMode ? 'border-slate-900 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
-        <p>Sistema POS Enterprise & Soluciones Corporativas • Todos los derechos reservados[cite: 2].</p>
+        <p>POS Enterprise Venezuela • Todos los derechos reservados[cite: 2].</p>
       </footer>
     </div>
   );
 }
+```[cite: 2]
