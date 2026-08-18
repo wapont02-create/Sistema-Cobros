@@ -3,9 +3,10 @@ import { db } from '../../../db/client';
 
 export async function GET() {
   try {
-    const result = await db.execute("SELECT * FROM customers");
-    return NextResponse.json(result.rows);
+    const result = await db.sql("SELECT * FROM customers ORDER BY id DESC");
+    return NextResponse.json(result);
   } catch (error) {
+    console.error("Error al obtener clientes:", error);
     return NextResponse.json({ error: 'Error al obtener clientes' }, { status: 500 });
   }
 }
@@ -15,13 +16,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, rif_ci, phone } = body;
 
-    await db.execute({
-      sql: `INSERT INTO customers (name, rif_ci, phone) VALUES (?, ?, ?)`,
-      args: [name, rif_ci, phone]
-    });
+    if (!name) {
+      return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
+    }
 
-    return NextResponse.json({ success: true, message: 'Cliente registrado correctamente' });
+    await db.sql(`INSERT INTO customers (name, rif_ci, phone) VALUES ('${name}', '${rif_ci || ''}', '${phone || ''}')`);
+
+    return NextResponse.json({ success: true, message: 'Cliente registrado con éxito' });
   } catch (error) {
-    return NextResponse.json({ error: 'Error al guardar el cliente' }, { status: 500 });
+    console.error("Error al registrar cliente:", error);
+    return NextResponse.json({ error: 'Error al registrar el cliente en la base de datos' }, { status: 500 });
   }
 }
