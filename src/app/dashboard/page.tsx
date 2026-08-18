@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import RolesManagerModule from '../../components/RolesManagerModule';
-import { getRoles, getUsers } from '../../util/rolesManager';
+import { getRoles, getUsers } from '../../utils/rolesManager';
 
 type Product = { 
   id: number; 
@@ -58,7 +58,6 @@ type PayableAccount = {
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
-  // 1. Control de hidratación para evitar errores de renderizado en cliente/servidor (#418)
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -94,7 +93,6 @@ export default function DashboardPOS() {
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
-  // 2. Carga segura de datos desde las APIs con manejo de errores
   useEffect(() => {
     async function loadCloudData() {
       try {
@@ -119,12 +117,10 @@ export default function DashboardPOS() {
     loadCloudData();
   }, []);
 
-  // Estado para la reposición de inventario
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
 
-  // Filtro de inventario
   const [inventoryFilterMode, setInventoryFilterMode] = useState<'all' | 'low'>('all');
 
   useEffect(() => {
@@ -501,7 +497,6 @@ RESUMEN GENERAL:
 
   const lowStockCount = products.filter(p => p.stock <= 5).length;
 
-  // 3. Renderizado condicional mientras se monta el componente
   if (!isMounted) return null;
 
   return (
