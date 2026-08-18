@@ -31,3 +31,32 @@ export async function PUT(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> | { id: string } }
+) {
+  try {
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Falta el ID del producto' }, { status: 400 });
+    }
+
+    // Ejecuta la sentencia SQL para borrar el producto en SQLite Cloud
+    await db.sql(`DELETE FROM products WHERE id = ${id};`);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Producto eliminado correctamente de la base de datos' 
+    });
+
+  } catch (error: any) {
+    console.error("Error al eliminar el producto:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Error interno al eliminar' }, 
+      { status: 500 }
+    );
+  }
+}
