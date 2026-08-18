@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../db/client'; // Ajusta la ruta si es necesario según la ubicación exacta de tu cliente
+import { db } from '../../../db/client'; // Ajusta la ruta de importación de tu cliente si es necesario
 
 export async function GET() {
   try {
@@ -8,18 +8,18 @@ export async function GET() {
     const formattedProducts = Array.isArray(products) ? products.map((p: any) => ({
       id: p.id,
       name: p.name,
-      barcode: p.barcode,
-      price: p.price_usd,
-      stock: p.stock,
+      barcode: p.barcode || '',
+      price: Number(p.price_usd || 0),
+      stock: Number(p.stock || 0),
       taxable: p.taxable !== undefined ? Boolean(p.taxable) : true,
       category: p.category || 'General',
-      costPrice: p.cost_price || 0
+      costPrice: Number(p.cost_price || 0)
     })) : [];
 
     return NextResponse.json(formattedProducts);
   } catch (error: any) {
-    console.error("Error al obtener productos:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Error en GET /api/products:", error);
+    return NextResponse.json({ error: error.message || 'Error interno del servidor' }, { status: 500 });
   }
 }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Producto registrado con éxito' });
   } catch (error: any) {
-    console.error("Error al guardar producto:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("Error en POST /api/products:", error);
+    return NextResponse.json({ success: false, error: error.message || 'Error al guardar el producto' }, { status: 500 });
   }
 }
