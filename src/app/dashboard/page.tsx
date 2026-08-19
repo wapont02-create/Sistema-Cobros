@@ -20,16 +20,16 @@ type PaymentMethodType = 'Efectivo USD' | 'Efectivo Bs' | 'Pago Móvil' | 'Zelle
 type SaleRecord = {
   id: number;
   date: string;
-  items?: CartItem[];
-  subtotalUSD?: number;
-  ivaUSD?: number;
+  items: CartItem[];
+  subtotalUSD: number;
+  ivaUSD: number;
   totalUSD: number;
-  totalBs?: number;
-  exchangeRate?: number;
+  totalBs: number;
+  exchangeRate: number;
   paymentMethod: PaymentMethodType;
-  changeUSD?: number;
+  changeUSD: number;
   clientName?: string;
-  created_at?: string; // Por si viene directo de SQLite
+  created_at?: string; 
 };
 
 type CreditAccount = {
@@ -59,7 +59,7 @@ type PayableAccount = {
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
-  const [isMounted, setIsMounted] = useState(false); // <--- EVITA ERRORES DE HIDRATACIÓN
+  const [isMounted, setIsMounted] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
   
@@ -74,12 +74,10 @@ export default function DashboardPOS() {
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
-  // Estado para la reposición de inventario
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
 
-  // Filtro de inventario
   const [inventoryFilterMode, setInventoryFilterMode] = useState<'all' | 'low'>('all');
 
   const [newProviderName, setNewProviderName] = useState('');
@@ -108,15 +106,15 @@ export default function DashboardPOS() {
   const [newStock, setNewStock] = useState('');
 
   useEffect(() => {
-    setIsMounted(true); // Solo renderiza al estar montado en cliente
+    setIsMounted(true);
     if (typeof window !== 'undefined') {
       const savedCredits = localStorage.getItem('pos_credits');
       if (savedCredits) {
-        try { setCredits(JSON.parse(savedCredits)); } catch (e) {}
+        try { setCredits(JSON.parse(savedCredits)); } catch (e) { console.error(e); }
       }
       const savedPayables = localStorage.getItem('pos_payables');
       if (savedPayables) {
-        try { setPayables(JSON.parse(savedPayables)); } catch (e) {}
+        try { setPayables(JSON.parse(savedPayables)); } catch (e) { console.error(e); }
       }
       const savedBcv = localStorage.getItem('pos_bcv');
       if (savedBcv) {
@@ -135,16 +133,19 @@ export default function DashboardPOS() {
 
         const salesRes = await fetch('/api/sales');
         const salesData = await salesRes.json();
-        
         if (Array.isArray(salesData)) {
-          // MAPEO IMPORTANTE: Convertimos de snake_case (SQLite) a camelCase (Frontend)
           const formattedSales = salesData.map(sale => ({
             id: sale.id,
+            items: sale.items || [],
+            subtotalUSD: Number(sale.subtotal_usd || sale.subtotalUSD || 0),
+            ivaUSD: Number(sale.iva_usd || sale.ivaUSD || 0),
             totalUSD: Number(sale.total_usd || sale.totalUSD || 0),
+            totalBs: Number(sale.total_bs || sale.totalBs || (Number(sale.total_usd || sale.totalUSD || 0) * exchangeRate)),
+            exchangeRate: Number(sale.exchange_rate || sale.exchangeRate || exchangeRate),
             paymentMethod: sale.payment_method || sale.paymentMethod || 'Efectivo USD',
-            date: sale.created_at || sale.date || new Date().toISOString(),
-            totalBs: Number(sale.total_usd || sale.totalUSD || 0) * exchangeRate,
-            ivaUSD: 0 // Si no lo guardas, puedes dejarlo en 0 para el reporte básico
+            changeUSD: Number(sale.change_usd || sale.changeUSD || 0),
+            clientName: sale.client_name || sale.clientName || 'Cliente Genérico',
+            date: sale.created_at || sale.date || new Date().toLocaleString()
           }));
           setSalesHistory(formattedSales as SaleRecord[]);
         }
@@ -197,19 +198,35 @@ export default function DashboardPOS() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('pos_credits', JSON.stringify(credits));
+    }
+  }, [credits]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('pos_payables', JSON.stringify(payables));
+    }
+  }, [payables]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('pos_bcv', exchangeRate.toString());
     }
-  }, [credits, payables, exchangeRate]);
+  }, [exchangeRate]);
 
   if (!isMounted) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Cargando POS...</div>;
 
   const addToCart = (product: Product) => {
-    if (product.stock <= 0) return alert('¡Producto agotado!');
+    if (product.stock <= 0) {
+      alert('¡Producto agotado en inventario!');
+      return;
+    }
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stock) return prev;
+        if (existing.quantity >= product.stock) {
+          alert('Has alcanzado el límite del stock disponible.');
+          return prev;
+        }
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...product, quantity: 1 }];
@@ -221,14 +238,19 @@ export default function DashboardPOS() {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = item.quantity + delta;
-        if (productRef && newQty > productRef.stock) return item;
+        if (productRef && newQty > productRef.stock) {
+          alert('Has alcanzado el límite del stock disponible.');
+          return item;
+        }
         return newQty > 0 ? { ...item, quantity: newQty } : null;
       }
       return item;
     }).filter(Boolean) as CartItem[]);
   };
 
-  const removeFromCart = (id: number) => setCart(prev => prev.filter(item => item.id !== id));
+  const removeFromCart = (id: number) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,28 +272,41 @@ export default function DashboardPOS() {
       const data = await res.json();
       if (data.success) {
         const prodRes = await fetch('/api/products');
-        setProducts(await prodRes.json());
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) setProducts(prodData);
         setNewName(''); setNewCostPrice(''); setNewPrice(''); setNewStock('');
-        alert('¡Producto registrado!');
+        alert('¡Producto registrado con éxito en la nube!');
+      } else {
+        alert('Error al guardar el producto: ' + data.error);
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error al registrar producto:", error);
+    }
   };
 
   const deleteProduct = async (id: number) => {
-    if (!confirm("¿Eliminar producto?")) return;
+    if (!confirm("¿Estás seguro de eliminar este producto de la base de datos?")) return;
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok || data.success) {
         const prodRes = await fetch('/api/products');
-        setProducts(await prodRes.json());
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) setProducts(prodData);
+        alert('¡Producto eliminado con éxito de la nube!');
+      } else {
+        alert('Error al eliminar el producto: ' + (data.error || 'Desconocido'));
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error de conexión al eliminar producto:", error);
+    }
   };
 
   const handleRestockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductForRestock || !restockAmount) return;
     const amount = parseInt(restockAmount) || 0;
+    if (amount <= 0) return;
     const newStockTotal = selectedProductForRestock.stock + amount;
     try {
       const res = await fetch(`/api/products/${selectedProductForRestock.id}`, {
@@ -279,24 +314,33 @@ export default function DashboardPOS() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStockTotal })
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok || data.success) {
         const prodRes = await fetch('/api/products');
-        setProducts(await prodRes.json());
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) setProducts(prodData);
+        alert(`¡Se han añadido ${amount} unidades a "${selectedProductForRestock.name}" con éxito!`);
         setIsRestockModalOpen(false);
+        setSelectedProductForRestock(null);
         setRestockAmount('');
+      } else {
+        alert('Error al actualizar el stock en la nube.');
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error al reponer stock:", error);
+    }
   };
 
   const exportInventoryToCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,ID,Producto,Categoria,Costo_USD,Precio_USD,Stock,Gravado_IVA\n";
     products.forEach(p => {
-      csvContent += `${p.id},"${p.name}","${p.category}",${p.costPrice},${p.price},${p.stock},${p.taxable ? 'SI' : 'NO'}\n`;
+      const row = [p.id, `"${p.name}"`, `"${p.category}"`, p.costPrice, p.price, p.stock, p.taxable ? 'SI' : 'NO'];
+      csvContent += row.join(",") + "\n";
     });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.href = encodedUri;
-    link.download = `inventario_${Date.now()}.csv`;
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `inventario_pos_${Date.now()}.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
@@ -311,9 +355,12 @@ export default function DashboardPOS() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
-    if (paymentMethod === 'Crédito / Fiado' && !clientName) return alert('Debe ingresar el nombre del cliente.');
+    if (paymentMethod === 'Crédito / Fiado' && !clientName) {
+      alert('Debe ingresar el nombre del cliente para registrar una venta a crédito.');
+      return;
+    }
     const salePayload = {
-      date: new Date().toISOString(),
+      date: new Date().toLocaleString(),
       subtotalUSD,
       ivaUSD: totalIvaUSD,
       totalUSD,
@@ -321,7 +368,7 @@ export default function DashboardPOS() {
       exchangeRate,
       paymentMethod,
       changeUSD,
-      clientName: paymentMethod === 'Crédito / Fiado' ? clientName : 'Generico',
+      clientName: paymentMethod === 'Crédito / Fiado' ? clientName : 'Cliente Genérico',
       items: cart
     };
     try {
@@ -333,48 +380,73 @@ export default function DashboardPOS() {
       const result = await res.json();
       if (result.success) {
         setProducts(prev => prev.map(prod => {
-          const cItem = cart.find(c => c.id === prod.id);
-          return cItem ? { ...prod, stock: Math.max(0, prod.stock - cItem.quantity) } : prod;
+          const cartItem = cart.find(c => c.id === prod.id);
+          if (cartItem) return { ...prod, stock: Math.max(0, prod.stock - cartItem.quantity) };
+          return prod;
         }));
-        
+
         const salesRes = await fetch('/api/sales');
         const salesData = await salesRes.json();
-        const formattedSales = Array.isArray(salesData) ? salesData.map(sale => ({
-          id: sale.id,
-          totalUSD: Number(sale.total_usd || sale.totalUSD || 0),
-          paymentMethod: sale.payment_method || sale.paymentMethod || 'Efectivo USD',
-          date: sale.created_at || sale.date || new Date().toISOString(),
-          totalBs: Number(sale.total_usd || sale.totalUSD || 0) * exchangeRate,
-          ivaUSD: 0
-        })) : [];
-        setSalesHistory(formattedSales as SaleRecord[]);
+        if (Array.isArray(salesData)) {
+          const formattedSales = salesData.map(sale => ({
+            id: sale.id,
+            items: sale.items || [],
+            subtotalUSD: Number(sale.subtotal_usd || sale.subtotalUSD || 0),
+            ivaUSD: Number(sale.iva_usd || sale.ivaUSD || 0),
+            totalUSD: Number(sale.total_usd || sale.totalUSD || 0),
+            totalBs: Number(sale.total_bs || sale.totalBs || (Number(sale.total_usd || sale.totalUSD || 0) * exchangeRate)),
+            exchangeRate: Number(sale.exchange_rate || sale.exchangeRate || exchangeRate),
+            paymentMethod: sale.payment_method || sale.paymentMethod || 'Efectivo USD',
+            changeUSD: Number(sale.change_usd || sale.changeUSD || 0),
+            clientName: sale.client_name || sale.clientName || 'Cliente Genérico',
+            date: sale.created_at || sale.date || new Date().toLocaleString()
+          }));
+          setSalesHistory(formattedSales as SaleRecord[]);
+        }
 
         if (paymentMethod === 'Crédito / Fiado') {
-          setCredits(prev => [{
+          const newCredit: CreditAccount = {
             id: Date.now(), clientName, clientPhone: clientPhone || 'N/A', clientDocument: clientDocument || 'N/A',
-            totalDebtUSD: totalUSD, totalDebtBs: totalBs, date: new Date().toISOString(), status: 'Pendiente', saleId: result.saleId
-          }, ...prev]);
+            totalDebtUSD: totalUSD, totalDebtBs: totalBs, date: new Date().toLocaleString(), status: 'Pendiente', saleId: result.saleId,
+          };
+          setCredits(prev => [newCredit, ...prev]);
+          alert(`¡Crédito registrado con éxito para ${clientName}!`);
+        } else {
+          alert(`¡Pago procesado con éxito!\nVuelto: $${Number(changeUSD || 0).toFixed(2)}`);
         }
-        setCart([]); setCashGivenUSD(''); setClientName(''); setIsCheckoutModalOpen(false);
+
+        setCart([]); setCashGivenUSD(''); setClientName(''); setClientPhone(''); setClientDocument(''); setIsCheckoutModalOpen(false);
+      } else {
+        alert('Error al procesar la venta: ' + result.error);
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error al procesar venta:", error);
+    }
   };
 
-  const payCredit = (id: number) => setCredits(prev => prev.map(c => c.id === id ? { ...c, status: 'Pagado', totalDebtUSD: 0, totalDebtBs: 0 } : c));
+  const payCredit = (creditId: number) => {
+    setCredits(prev => prev.map(c => c.id === creditId ? { ...c, status: 'Pagado', totalDebtUSD: 0, totalDebtBs: 0 } : c));
+    alert('¡Cuenta por cobrar saldada con éxito!');
+  };
 
   const handleAddPayable = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProviderName || !newPayableAmountUSD) return;
     const amountUSD = parseFloat(newPayableAmountUSD) || 0;
-    setPayables(prev => [{
-      id: Date.now(), providerName: newProviderName, providerDocument: newProviderDoc || 'J-000',
-      description: newPayableDesc || 'Mercancía', totalDebtUSD: amountUSD, totalDebtBs: amountUSD * exchangeRate,
-      dueDate: newDueDate || 'Sin límite', date: new Date().toLocaleDateString(), status: 'Pendiente'
-    }, ...prev]);
-    setNewProviderName(''); setNewPayableAmountUSD('');
+    const newPayable: PayableAccount = {
+      id: Date.now(), providerName: newProviderName, providerDocument: newProviderDoc || 'J-00000000-0',
+      description: newPayableDesc || 'Compra de mercancía', totalDebtUSD: amountUSD, totalDebtBs: amountUSD * exchangeRate,
+      dueDate: newDueDate || 'Sin fecha límite', date: new Date().toLocaleDateString(), status: 'Pendiente',
+    };
+    setPayables(prev => [newPayable, ...prev]);
+    setNewProviderName(''); setNewProviderDoc(''); setNewPayableDesc(''); setNewPayableAmountUSD(''); setNewDueDate('');
+    alert('¡Cuenta por pagar registrada con éxito!');
   };
 
-  const payPayable = (id: number) => setPayables(prev => prev.map(p => p.id === id ? { ...p, status: 'Pagado', totalDebtUSD: 0, totalDebtBs: 0 } : p));
+  const payPayable = (payableId: number) => {
+    setPayables(prev => prev.map(p => p.id === payableId ? { ...p, status: 'Pagado', totalDebtUSD: 0, totalDebtBs: 0 } : p));
+    alert('¡Cuenta por pagar saldada con éxito!');
+  };
 
   const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + (c.totalDebtUSD || 0), 0);
   const pendingPayablesUSD = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + (p.totalDebtUSD || 0), 0);
@@ -385,10 +457,10 @@ export default function DashboardPOS() {
 
   const getMethodStats = (method: string) => {
     const filtered = salesHistory.filter(s => {
-      // Manejamos variaciones en los strings como "Efectivo", "Efectivo USD", etc.
-      if (method === 'Efectivo USD' && (s.paymentMethod === 'Efectivo' || s.paymentMethod === 'Efectivo USD')) return true;
-      if (method === 'Pago Móvil' && (s.paymentMethod === 'Pago Móvil' || s.paymentMethod === 'Pago Movil')) return true;
-      return s.paymentMethod === method;
+      const sMethod = s.paymentMethod as string;
+      if (method === 'Efectivo USD' && (sMethod === 'Efectivo' || sMethod === 'Efectivo USD')) return true;
+      if (method === 'Pago Móvil' && (sMethod === 'Pago Móvil' || sMethod === 'Pago Movil')) return true;
+      return sMethod === method;
     });
     const count = filtered.length;
     const totalUSD = filtered.reduce((sum, s) => sum + Number(s.totalUSD || 0), 0);
@@ -420,7 +492,7 @@ RESUMEN GENERAL:
 ----------------------------------------`.trim();
     const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a'); link.href = url; link.download = `Reporte_Z_${Date.now()}.txt`;
+    const link = document.createElement('a'); link.href = url; link.download = `Reporte_Cierre_Z_${Date.now()}.txt`;
     link.click(); URL.revokeObjectURL(url);
   };
 
@@ -440,126 +512,491 @@ RESUMEN GENERAL:
         <div className="flex items-center gap-4">
           <span className="text-xl font-black text-blue-400">⚡ POS Enterprise Venezuela</span>
           <div className="flex flex-wrap bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
-            <button onClick={() => setActiveTab('pos')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'pos' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>🛒 Caja POS</button>
-            <button onClick={() => setActiveTab('inventory')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>📦 Inventario</button>
-            <button onClick={() => setActiveTab('accounts')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'accounts' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>📒 Cuentas</button>
-            <button onClick={() => setActiveTab('reports')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>📊 Reportes Z</button>
-            <button onClick={() => setActiveTab('roles')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'roles' ? 'bg-cyan-600 text-white' : 'text-cyan-400'}`}>🛡️ Roles</button>
+            <button onClick={() => setActiveTab('pos')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'pos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>🛒 Caja POS</button>
+            <button onClick={() => setActiveTab('inventory')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+              📦 Inventario
+              {lowStockCount > 0 && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">{lowStockCount}</span>}
+            </button>
+            <button onClick={() => setActiveTab('accounts')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>📒 Cuentas (Cobrar/Pagar)</button>
+            <button onClick={() => setActiveTab('reports')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>📊 Reportes Z</button>
+            <button onClick={() => setActiveTab('roles')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'roles' ? 'bg-cyan-600 text-white' : 'text-cyan-400 hover:text-white bg-cyan-950/40 border border-cyan-800/50'}`}>🛡️ Roles y Personal</button>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl text-xs">
             <span className="text-slate-400">Tasa BCV (Bs/$):</span>
-            <input type="number" step="0.01" value={exchangeRate} onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)} className="bg-slate-900 text-white w-20 px-2 text-center" />
+            <input type="number" step="0.01" value={exchangeRate} onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)} className="bg-slate-900 text-white font-bold w-20 px-2 py-0.5 rounded border border-slate-700 text-center" />
+          </div>
+
+          <div className="flex items-center gap-2.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl text-xs">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-xs">{currentUserObj?.name ? currentUserObj.name.charAt(0) : 'U'}</div>
+            <div>
+              <div className="font-semibold text-white leading-tight">{currentUserObj?.name || 'Usuario'}</div>
+              <div className="text-[10px] text-blue-400 uppercase font-bold">ROL : {currentRoleObj?.name || 'Sin Rol'}</div>
+            </div>
+            <div className="ml-2 pl-2 border-l border-slate-800 flex items-center gap-1.5">
+              <select value={currentUsername} onChange={(e) => setCurrentUsername(e.target.value)} className="bg-slate-900 text-xs text-white border border-slate-700 rounded px-2 py-1 font-medium cursor-pointer">
+                {usersList.map(u => {
+                  const roleOfUser = rolesList.find(r => r.id.toLowerCase() === u.roleId?.toLowerCase() || r.name.toLowerCase() === u.roleId?.toLowerCase());
+                  return <option key={u.id} value={u.username}>{u.name} ({roleOfUser?.name || u.roleId})</option>;
+                })}
+              </select>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* VISTA 1: CAJA POS */}
       {activeTab === 'pos' && (
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
           <div className="lg:col-span-7 flex flex-col gap-4">
-             {/* ... CÓDIGO DEL POS ... */}
-             <div className="flex flex-col sm:flex-row gap-3">
-              <input type="text" placeholder="Buscar producto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
-             </div>
-             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-               {filteredProducts.map(product => (
-                 <button key={product.id} onClick={() => addToCart(product)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-left">
-                   <div className="text-sm font-semibold">{product.name}</div>
-                   <div className="font-bold text-blue-400">${Number(product.price).toFixed(2)}</div>
-                 </button>
-               ))}
-             </div>
-          </div>
-          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
-            <div>
-              <h2 className="font-bold mb-4">Ticket</h2>
-              {cart.map(item => (
-                <div key={item.id} className="flex justify-between items-center mb-2">
-                  <span>{item.name} x {item.quantity}</span>
-                  <span>${Number(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-              ))}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input type="text" placeholder="Buscar producto por nombre..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white" />
+              <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
+                {categories.map(cat => (
+                  <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${selectedCategory === cat ? 'bg-blue-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-400'}`}>{cat}</button>
+                ))}
+              </div>
             </div>
-            <div className="border-t border-slate-800 pt-4 mt-4">
-              <div className="text-xl font-black text-blue-400">Total: ${Number(totalUSD).toFixed(2)}</div>
-              <button onClick={() => setIsCheckoutModalOpen(true)} className="w-full mt-3 py-3 rounded-xl bg-blue-600 font-bold">Procesar Venta</button>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[550px] overflow-y-auto pr-1">
+              {filteredProducts.map(product => {
+                const priceBs = (product.price || 0) * exchangeRate;
+                const isOut = product.stock <= 0;
+                return (
+                  <button key={product.id} onClick={() => addToCart(product)} className={`bg-slate-900 border p-4 rounded-2xl text-left transition flex flex-col justify-between group shadow-lg ${isOut ? 'border-red-500/30 opacity-60 cursor-not-allowed' : 'border-slate-800 hover:border-blue-500/60'}`}>
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] uppercase font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">{product.category}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${product.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>{product.taxable ? 'IVA 16%' : 'Exento'}</span>
+                      </div>
+                      <div className="font-semibold text-slate-200 mt-2 text-sm">{product.name}</div>
+                    </div>
+                    <div className="mt-4 flex justify-between items-end">
+                      <div>
+                        <div className="font-bold text-blue-400 text-base">${Number(product.price || 0).toFixed(2)}</div>
+                        <div className="text-[10px] text-slate-500">Bs. {Number(priceBs || 0).toFixed(2)}</div>
+                      </div>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isOut ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-300'}`}>Stk: {product.stock}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+            <div>
+              <h2 className="text-lg font-bold mb-4 border-b border-slate-800 pb-3 flex justify-between items-center">
+                <span>Ticket de Venta</span>
+                <span className="text-xs font-normal text-slate-400">{cart.length} items</span>
+              </h2>
+
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                {cart.length === 0 && <div className="text-center py-8 text-slate-500 text-sm">No hay productos en el ticket.</div>}
+                {cart.map(item => {
+                  const itemTotalUSD = (item.price || 0) * item.quantity;
+                  const itemTotalBs = itemTotalUSD * exchangeRate;
+                  return (
+                    <div key={item.id} className="bg-slate-950/60 border border-slate-800/60 p-3 rounded-xl flex justify-between items-center">
+                      <div className="flex-1 pr-2">
+                        <div className="text-sm font-medium text-slate-200">{item.name}</div>
+                        <div className="text-xs text-blue-400">${Number(item.price || 0).toFixed(2)} c/u</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center border border-slate-800 rounded-lg bg-slate-900">
+                          <button onClick={() => updateQuantity(item.id, -1)} className="px-2 py-1 text-slate-400 text-xs">-</button>
+                          <span className="px-2 text-xs font-bold">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.id, 1)} className="px-2 py-1 text-slate-400 text-xs">+</button>
+                        </div>
+                        <div className="text-right w-20">
+                          <div className="text-sm font-bold">${Number(itemTotalUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-slate-500">Bs. {Number(itemTotalBs || 0).toFixed(2)}</div>
+                        </div>
+                        <button onClick={() => removeFromCart(item.id)} className="text-slate-500 hover:text-red-400 text-xs ml-1">✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-800 pt-4 mt-4 space-y-3">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1.5 text-sm">
+                <div className="flex justify-between text-slate-400"><span>Subtotal:</span><span>${Number(subtotalUSD || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between text-slate-400"><span>IVA (16%):</span><span>${Number(totalIvaUSD || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between items-baseline pt-2 border-t border-slate-800">
+                  <span className="font-bold text-white">Total a Pagar:</span>
+                  <div className="text-right">
+                    <div className="text-xl font-black text-blue-400">${Number(totalUSD || 0).toFixed(2)}</div>
+                    <div className="text-xs text-emerald-400 font-semibold">Bs. {Number(totalBs || 0).toFixed(2)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={() => setIsCheckoutModalOpen(true)} disabled={cart.length === 0} className={`w-full py-3.5 rounded-xl font-bold transition shadow-lg ${cart.length > 0 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+                Procesar Venta 💳
+              </button>
             </div>
           </div>
         </main>
       )}
 
-      {/* MODAL DE CHECKOUT */}
       {isCheckoutModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4">
-           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6">
-             <h3 className="font-bold mb-4">Confirmar Pago</h3>
-             <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethodType)} className="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-4">
-               <option value="Efectivo USD">Efectivo USD</option>
-               <option value="Pago Móvil">Pago Móvil</option>
-               <option value="Zelle">Zelle</option>
-               <option value="Binance Pay">Binance Pay</option>
-               <option value="Crédito / Fiado">Crédito / Fiado</option>
-             </select>
-             <button onClick={handleCheckout} className="w-full bg-blue-600 py-3 rounded font-bold">Completar Cobro</button>
-           </div>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white">Confirmar Pago o Crédito</h3>
+              <button onClick={() => setIsCheckoutModalOpen(false)} className="text-slate-400 bg-slate-800/60 p-2 rounded-xl text-xs">✕</button>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div className="text-xs text-slate-400">Total a Cancelar</div>
+                <div className="text-xl font-black text-blue-400">${Number(totalUSD || 0).toFixed(2)}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-400">Equivalente BCV</div>
+                <div className="text-sm font-bold text-emerald-400">Bs. {Number(totalBs || 0).toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Método de Pago</label>
+                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethodType)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white font-semibold text-blue-300">
+                  <option value="Efectivo USD">💵 Efectivo USD ($)</option>
+                  <option value="Pago Móvil">📱 Pago Móvil (Bs.)</option>
+                  <option value="Zelle">🌐 Zelle ($)</option>
+                  <option value="Binance Pay">🪙 Binance Pay (USDT)</option>
+                  <option value="Crédito / Fiado">📒 Crédito / Fiado (Cuentas x Cobrar)</option>
+                </select>
+              </div>
+
+              {paymentMethod === 'Crédito / Fiado' ? (
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2.5">
+                  <div className="text-xs font-bold text-amber-400">Datos del Cliente (Crédito)</div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Nombre y Apellido *</label>
+                    <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ej. Juan Pérez" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">Cédula / RIF</label>
+                      <input type="text" value={clientDocument} onChange={(e) => setClientDocument(e.target.value)} placeholder="V-12345678" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">Teléfono</label>
+                      <input type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="0414-0000000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Efectivo Recibido ($)</label>
+                  <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
+                    <input type="number" step="0.1" value={cashGivenUSD} onChange={(e) => setCashGivenUSD(e.target.value)} placeholder="0.00" className="bg-transparent text-white focus:outline-none w-full text-sm" />
+                    <div className="text-right">
+                      <span className="text-xs text-slate-500">Vuelto: <strong className="text-emerald-400">${Number(changeUSD || 0).toFixed(2)}</strong></span>
+                      <div className="text-[10px] text-slate-500">Bs. {Number(changeBs || 0).toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setIsCheckoutModalOpen(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs transition">Cancelar</button>
+              <button onClick={handleCheckout} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg">Completar Cobro ⚡</button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* VISTA 4: REPORTES */}
+      {isRestockModalOpen && selectedProductForRestock && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white">Reponer Inventario</h3>
+              <button onClick={() => { setIsRestockModalOpen(false); setSelectedProductForRestock(null); }} className="text-slate-400 bg-slate-800/60 p-2 rounded-xl text-xs">✕</button>
+            </div>
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
+              <div className="text-slate-400">Producto:</div>
+              <div className="font-bold text-blue-400 text-sm">{selectedProductForRestock.name}</div>
+              <div className="text-slate-400 pt-1">Stock Actual: <strong className="text-white">{selectedProductForRestock.stock} unidades</strong></div>
+            </div>
+            <form onSubmit={handleRestockSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Cantidad a Agregar *</label>
+                <input type="number" min="1" required value={restockAmount} onChange={(e) => setRestockAmount(e.target.value)} placeholder="Ej. 24" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white font-bold" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => { setIsRestockModalOpen(false); setSelectedProductForRestock(null); }} className="flex-1 bg-slate-800 text-slate-300 font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
+                <button type="submit" className="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg">Sumar Stock 📦</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'inventory' && (
+        <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Gestión de Inventario</h2>
+              <span className="text-sm text-slate-400">Control de costos, márgenes y alertas</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
+                <button onClick={() => setInventoryFilterMode('all')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${inventoryFilterMode === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>Todos ({products.length})</button>
+                <button onClick={() => setInventoryFilterMode('low')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${inventoryFilterMode === 'low' ? 'bg-red-600 text-white' : 'text-slate-400'}`}>⚠️ Stock Bajo ({lowStockCount})</button>
+              </div>
+              <button onClick={exportInventoryToCSV} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs transition shadow flex items-center gap-1.5">📥 Exportar CSV</button>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold mb-4 text-blue-400">Registrar Nuevo Producto</h3>
+            <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-slate-400 mb-1">Nombre</label>
+                <input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ej. Maltín Polar" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Costo ($)</label>
+                <input type="number" step="0.01" required value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} placeholder="0.00" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Venta ($)</label>
+                <input type="number" step="0.01" required value={newPrice} onChange={(e) => setNewPrice(e.target.value)} placeholder="0.00" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Stock</label>
+                <input type="number" required value={newStock} onChange={(e) => setNewStock(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Categoría</label>
+                <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white">
+                  <option value="Comida">Comida</option>
+                  <option value="Bebidas">Bebidas</option>
+                  <option value="Pasapalos">Pasapalos</option>
+                  <option value="Víveres">Víveres</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input type="checkbox" id="tax" checked={newTaxable} onChange={(e) => setNewTaxable(e.target.checked)} className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-600" />
+                <label htmlFor="tax" className="text-xs text-slate-300 font-medium cursor-pointer">Aplica IVA (16%)</label>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-5 flex items-end">
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition">Guardar Producto</button>
+              </div>
+            </form>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase tracking-wider">
+                  <th className="p-4">Producto</th>
+                  <th className="p-4">Categoría</th>
+                  <th className="p-4">Costo</th>
+                  <th className="p-4">Precio</th>
+                  <th className="p-4">Margen</th>
+                  <th className="p-4">Fiscalidad</th>
+                  <th className="p-4">Stock</th>
+                  <th className="p-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-sm">
+                {inventoryProducts.length === 0 && <tr><td colSpan={8} className="text-center py-12 text-slate-500">No hay productos que mostrar en este filtro.</td></tr>}
+                {inventoryProducts.map(prod => {
+                  const margin = (prod.costPrice || 0) > 0 ? (((prod.price - prod.costPrice) / prod.costPrice) * 100).toFixed(0) : 0;
+                  const isLow = prod.stock <= 5;
+                  return (
+                    <tr key={prod.id} className="hover:bg-slate-800/40 transition">
+                      <td className="p-4 font-medium text-white flex items-center gap-2">
+                        {prod.name}
+                        {isLow && <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">⚠️ Stock Bajo</span>}
+                      </td>
+                      <td className="p-4"><span className="text-[10px] uppercase font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">{prod.category}</span></td>
+                      <td className="p-4 text-slate-400">${Number(prod.costPrice || 0).toFixed(2)}</td>
+                      <td className="p-4 font-bold text-blue-400">${Number(prod.price || 0).toFixed(2)}</td>
+                      <td className="p-4 text-emerald-400 font-semibold">{margin}%</td>
+                      <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded ${prod.taxable ? 'text-amber-400 bg-amber-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>{prod.taxable ? 'Gravado (16%)' : 'Exento'}</span></td>
+                      <td className="p-4"><span className={`font-bold px-2 py-1 rounded text-xs ${isLow ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-200'}`}>{prod.stock} un.</span></td>
+                      <td className="p-4 text-right space-x-2">
+                        <button onClick={() => { setSelectedProductForRestock(prod); setIsRestockModalOpen(true); }} className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold">+ Stock</button>
+                        <button onClick={() => deleteProduct(prod.id)} className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold">Eliminar</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </main>
+      )}
+
+      {activeTab === 'accounts' && (
+        <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Módulo de Cuentas (Cobrar y Pagar)</h2>
+              <span className="text-sm text-slate-400">Gestión unificada de créditos a clientes (Fiados) y deudas con proveedores</span>
+            </div>
+            <div className="flex gap-3">
+              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+                <div className="text-xs text-slate-400">Total x Cobrar:</div>
+                <div className="text-sm font-black text-amber-400">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right">
+                <div className="text-xs text-slate-400">Total x Pagar:</div>
+                <div className="text-sm font-black text-red-400">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                  <h3 className="text-lg font-bold text-amber-400">📒 Cuentas por Cobrar (Clientes)</h3>
+                  <span className="text-xs bg-amber-500/10 text-amber-400 font-bold px-2 py-1 rounded">Pendientes: ${Number(pendingCreditsUSD || 0).toFixed(2)}</span>
+                </div>
+                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                  {credits.length === 0 && <div className="text-center py-12 text-slate-500 text-sm">No hay cuentas por cobrar registradas.</div>}
+                  {credits.map(credit => (
+                    <div key={credit.id} className="bg-slate-950 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">{credit.clientName}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${credit.status === 'Pendiente' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{credit.status}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">Doc: <strong className="text-slate-300">{credit.clientDocument}</strong> • Tel: <strong className="text-slate-300">{credit.clientPhone}</strong></div>
+                      </div>
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-amber-400">${Number(credit.totalDebtUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {Number(credit.totalDebtBs || 0).toFixed(2)}</div>
+                        </div>
+                        {credit.status === 'Pendiente' && <button onClick={() => payCredit(credit.id)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow">Saldar 💰</button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <h3 className="text-lg font-bold text-red-400">📥 Cuentas por Pagar (Proveedores)</h3>
+                  <span className="text-xs bg-red-500/10 text-red-400 font-bold px-2 py-1 rounded">Pendientes: ${Number(pendingPayablesUSD || 0).toFixed(2)}</span>
+                </div>
+                <form onSubmit={handleAddPayable} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <div className="text-xs font-bold text-blue-400">Registrar Nuevo Proveedor / Deuda</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input type="text" required value={newProviderName} onChange={(e) => setNewProviderName(e.target.value)} placeholder="Nombre Proveedor *" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />
+                    <input type="text" value={newProviderDoc} onChange={(e) => setNewProviderDoc(e.target.value)} placeholder="RIF / Cédula" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" value={newPayableDesc} onChange={(e) => setNewPayableDesc(e.target.value)} placeholder="Concepto" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white sm:col-span-1" />
+                    <input type="number" step="0.01" required value={newPayableAmountUSD} onChange={(e) => setNewPayableAmountUSD(e.target.value)} placeholder="Monto USD ($) *" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />
+                    <input type="text" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} placeholder="Fecha Límite" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />
+                  </div>
+                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-xs transition">Guardar Cuenta x Pagar 📥</button>
+                </form>
+
+                <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+                  {payables.length === 0 && <div className="text-center py-6 text-slate-500 text-xs">No hay cuentas por pagar registradas.</div>}
+                  {payables.map(payable => (
+                    <div key={payable.id} className="bg-slate-950 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">{payable.providerName}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${payable.status === 'Pendiente' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{payable.status}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">Concepto: <strong className="text-slate-300">{payable.description}</strong> • Vence: <strong className="text-amber-400">{payable.dueDate}</strong></div>
+                      </div>
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-red-400">${Number(payable.totalDebtUSD || 0).toFixed(2)}</div>
+                          <div className="text-[10px] text-emerald-400">Bs. {Number(payable.totalDebtBs || 0).toFixed(2)}</div>
+                        </div>
+                        {payable.status === 'Pendiente' && <button onClick={() => payPayable(payable.id)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow">Pagar ✅</button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      )}
+
       {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z)</h2>
-            <button onClick={downloadReportZ} className="bg-emerald-600 px-4 py-2 rounded-xl text-xs font-bold">📥 Descargar Reporte</button>
+            <div>
+              <h2 className="text-2xl font-bold">Reportes y Cierre de Caja (Z) Detallado</h2>
+              <span className="text-sm text-slate-400">Auditoría por método de pago y flujos de caja</span>
+            </div>
+            {salesHistory.length > 0 && (
+              <button onClick={downloadReportZ} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-lg flex items-center gap-2">
+                📥 Descargar Reporte Z (TXT)
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 mb-1">Ingresos Totales (Caja Fuerte)</div>
+              <div className="text-xs text-slate-400 mb-1">Ingresos Totales en Caja</div>
               <div className="text-2xl font-black text-blue-400">${Number(totalSalesRevenueUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-emerald-400 mt-1 font-semibold">Bs. {Number(totalSalesRevenueBs || 0).toFixed(2)}</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
               <div className="text-xs text-slate-400 mb-1">Cuentas x Cobrar Pendientes</div>
               <div className="text-2xl font-black text-amber-400">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">Fiados a clientes</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
               <div className="text-xs text-slate-400 mb-1">Cuentas x Pagar (Proveedores)</div>
               <div className="text-2xl font-black text-red-400">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">Deudas pendientes</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-blue-400 font-bold mb-1">💵 Efectivo USD</div>
               <div className="text-lg font-black">${Number(statsEfectivoUSD.totalUSD || 0).toFixed(2)}</div>
-              <div className="text-[10px] text-slate-500">{statsEfectivoUSD.count} operaciones</div>
+              <div className="text-xs text-slate-500 mt-1">{statsEfectivoUSD.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-emerald-400 font-bold mb-1">📱 Pago Móvil</div>
-              <div className="text-lg font-black">Bs. {Number(statsPagoMovil.totalBs || 0).toFixed(2)}</div>
-              <div className="text-[10px] text-slate-500">{statsPagoMovil.count} operaciones</div>
+              <div className="text-lg font-black">Bs. {Number(statsEfectivoUSD.totalBs || statsPagoMovil.totalBs || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-500 mt-1">{statsPagoMovil.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-purple-400 font-bold mb-1">🌐 Zelle</div>
               <div className="text-lg font-black">${Number(statsZelle.totalUSD || 0).toFixed(2)}</div>
-              <div className="text-[10px] text-slate-500">{statsZelle.count} operaciones</div>
+              <div className="text-xs text-slate-500 mt-1">{statsZelle.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-amber-400 font-bold mb-1">🪙 Binance Pay</div>
               <div className="text-lg font-black">${Number(statsBinance.totalUSD || 0).toFixed(2)}</div>
-              <div className="text-[10px] text-slate-500">{statsBinance.count} operaciones</div>
+              <div className="text-xs text-slate-500 mt-1">{statsBinance.count} operaciones</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
               <div className="text-xs text-teal-400 font-bold mb-1">📒 Créditos</div>
               <div className="text-lg font-black">${Number(statsCredito.totalUSD || 0).toFixed(2)}</div>
-              <div className="text-[10px] text-slate-500">{statsCredito.count} operaciones</div>
+              <div className="text-xs text-slate-500 mt-1">{statsCredito.count} operaciones</div>
             </div>
           </div>
         </main>
       )}
+
+      {activeTab === 'roles' && <RolesManagerModule />}
     </div>
   );
 }
