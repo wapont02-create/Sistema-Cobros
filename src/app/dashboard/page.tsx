@@ -372,6 +372,7 @@ export default function DashboardPOS() {
       items: cart
     };
     try {
+      // 1. Registrar la venta en la base de datos
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -379,11 +380,23 @@ export default function DashboardPOS() {
       });
       const result = await res.json();
       if (result.success) {
-        setProducts(prev => prev.map(prod => {
-          const cartItem = cart.find(c => c.id === prod.id);
-          if (cartItem) return { ...prod, stock: Math.max(0, prod.stock - cartItem.quantity) };
-          return prod;
-        }));
+        // 2. Actualizar en la base de datos el stock de cada producto vendido
+        for (const item of cart) {
+          const productRef = products.find(p => p.id === item.id);
+          if (productRef) {
+            const newStock = Math.max(0, productRef.stock - item.quantity);
+            await fetch(`/api/products/${item.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stock: newStock })
+            });
+          }
+        }
+
+        // 3. Recargar productos y ventas frescos de la nube
+        const prodRes = await fetch('/api/products');
+        const prodData = await prodRes.json();
+        if (Array.isArray(prodData)) setProducts(prodData);
 
         const salesRes = await fetch('/api/sales');
         const salesData = await salesRes.json();
