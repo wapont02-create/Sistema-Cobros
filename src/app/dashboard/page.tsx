@@ -29,7 +29,7 @@ type SaleRecord = {
   paymentMethod: PaymentMethodType;
   changeUSD?: number;
   clientName?: string;
-  created_at?: string; // Por si viene directo de SQLite
+  created_at?: string; 
 };
 
 type CreditAccount = {
@@ -59,7 +59,7 @@ type PayableAccount = {
 const IVA_RATE = 0.16;
 
 export default function DashboardPOS() {
-  const [isMounted, setIsMounted] = useState(false); // <--- EVITA ERRORES DE HIDRATACIÓN
+  const [isMounted, setIsMounted] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
   
@@ -74,12 +74,10 @@ export default function DashboardPOS() {
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
-  // Estado para la reposición de inventario
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
 
-  // Filtro de inventario
   const [inventoryFilterMode, setInventoryFilterMode] = useState<'all' | 'low'>('all');
 
   const [newProviderName, setNewProviderName] = useState('');
@@ -108,7 +106,7 @@ export default function DashboardPOS() {
   const [newStock, setNewStock] = useState('');
 
   useEffect(() => {
-    setIsMounted(true); // Solo renderiza al estar montado en cliente
+    setIsMounted(true);
     if (typeof window !== 'undefined') {
       const savedCredits = localStorage.getItem('pos_credits');
       if (savedCredits) {
@@ -137,14 +135,13 @@ export default function DashboardPOS() {
         const salesData = await salesRes.json();
         
         if (Array.isArray(salesData)) {
-          // MAPEO IMPORTANTE: Convertimos de snake_case (SQLite) a camelCase (Frontend)
           const formattedSales = salesData.map(sale => ({
             id: sale.id,
             totalUSD: Number(sale.total_usd || sale.totalUSD || 0),
             paymentMethod: sale.payment_method || sale.paymentMethod || 'Efectivo USD',
             date: sale.created_at || sale.date || new Date().toISOString(),
             totalBs: Number(sale.total_usd || sale.totalUSD || 0) * exchangeRate,
-            ivaUSD: 0 // Si no lo guardas, puedes dejarlo en 0 para el reporte básico
+            ivaUSD: 0
           }));
           setSalesHistory(formattedSales as SaleRecord[]);
         }
@@ -385,10 +382,10 @@ export default function DashboardPOS() {
 
   const getMethodStats = (method: string) => {
     const filtered = salesHistory.filter(s => {
-      // Manejamos variaciones en los strings como "Efectivo", "Efectivo USD", etc.
-      if (method === 'Efectivo USD' && (s.paymentMethod === 'Efectivo' || s.paymentMethod === 'Efectivo USD')) return true;
-      if (method === 'Pago Móvil' && (s.paymentMethod === 'Pago Móvil' || s.paymentMethod === 'Pago Movil')) return true;
-      return s.paymentMethod === method;
+      const sMethod = s.paymentMethod as string;
+      if (method === 'Efectivo USD' && (sMethod === 'Efectivo' || sMethod === 'Efectivo USD')) return true;
+      if (method === 'Pago Móvil' && (sMethod === 'Pago Móvil' || sMethod === 'Pago Movil')) return true;
+      return sMethod === method;
     });
     const count = filtered.length;
     const totalUSD = filtered.reduce((sum, s) => sum + Number(s.totalUSD || 0), 0);
@@ -456,11 +453,9 @@ RESUMEN GENERAL:
         </div>
       </header>
 
-      {/* VISTA 1: CAJA POS */}
       {activeTab === 'pos' && (
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
           <div className="lg:col-span-7 flex flex-col gap-4">
-             {/* ... CÓDIGO DEL POS ... */}
              <div className="flex flex-col sm:flex-row gap-3">
               <input type="text" placeholder="Buscar producto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
              </div>
@@ -491,7 +486,6 @@ RESUMEN GENERAL:
         </main>
       )}
 
-      {/* MODAL DE CHECKOUT */}
       {isCheckoutModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4">
            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6">
@@ -508,7 +502,6 @@ RESUMEN GENERAL:
         </div>
       )}
 
-      {/* VISTA 4: REPORTES */}
       {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="flex justify-between items-center">
