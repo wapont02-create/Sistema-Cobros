@@ -287,18 +287,22 @@ export default function DashboardPOS() {
   const deleteProduct = async (id: number) => {
     if (!confirm("¿Estás seguro de eliminar este producto de la base de datos?")) return;
     try {
-      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok || data.success) {
+      const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE' });
+      let data = {};
+      try { data = await res.json(); } catch (err) { /* sin json */ }
+
+      if (res.ok || (data as any).success) {
+        setProducts(prev => prev.filter(p => p.id !== id));
         const prodRes = await fetch('/api/products');
         const prodData = await prodRes.json();
         if (Array.isArray(prodData)) setProducts(prodData);
         alert('¡Producto eliminado con éxito de la nube!');
       } else {
-        alert('Error al eliminar el producto: ' + (data.error || 'Desconocido'));
+        alert('Error al eliminar el producto: ' + ((data as any).error || 'Desconocido'));
       }
     } catch (error) {
       console.error("Error de conexión al eliminar producto:", error);
+      alert('Error de conexión al intentar eliminar el producto.');
     }
   };
 
@@ -372,7 +376,6 @@ export default function DashboardPOS() {
       items: cart
     };
     try {
-      // 1. Registrar la venta en la base de datos
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -380,7 +383,6 @@ export default function DashboardPOS() {
       });
       const result = await res.json();
       if (result.success) {
-        // 2. Actualizar en la base de datos el stock de cada producto vendido
         for (const item of cart) {
           const productRef = products.find(p => p.id === item.id);
           if (productRef) {
@@ -393,7 +395,6 @@ export default function DashboardPOS() {
           }
         }
 
-        // 3. Recargar productos y ventas frescos de la nube
         const prodRes = await fetch('/api/products');
         const prodData = await prodRes.json();
         if (Array.isArray(prodData)) setProducts(prodData);
