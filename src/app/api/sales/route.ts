@@ -77,7 +77,7 @@ export async function GET() {
   try {
     if (!connectionString) throw new Error('Configuración de BD faltante');
     
-    db = new Database(connectionString);
+    const db = new Database(connectionString);
     const sales = await db.sql("SELECT id, customer_id, total_usd, payment_method, created_at FROM sales ORDER BY id DESC");
     
     return NextResponse.json(sales, { status: 200 });
