@@ -62,29 +62,32 @@ export default function DashboardPOS() {
   
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
-  const [credits, setCredits] = useState<CreditAccount[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('pos_credits');
-      if (saved) return JSON.parse(saved);
-    }
-    return [];
-  });
+  
+  // Estados inicializados de forma segura para evitar errores de hidratación en Next.js
+  const [credits, setCredits] = useState<CreditAccount[]>([]);
+  const [payables, setPayables] = useState<PayableAccount[]>([]);
+  const [exchangeRate, setExchangeRate] = useState<number>(776.00);
 
-  const [payables, setPayables] = useState<PayableAccount[]>(() => {
+  // Cargar datos locales de forma segura al montar el componente en el cliente
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('pos_payables');
-      if (saved) return JSON.parse(saved);
-    }
-    return [];
-  });
+      const savedCredits = localStorage.getItem('pos_credits');
+      if (savedCredits) {
+        try { setCredits(JSON.parse(savedCredits)); } catch (e) { console.error(e); }
+      }
 
-  const [exchangeRate, setExchangeRate] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('pos_bcv');
-      if (saved) return parseFloat(saved);
+      const savedPayables = localStorage.getItem('pos_payables');
+      if (savedPayables) {
+        try { setPayables(JSON.parse(savedPayables)); } catch (e) { console.error(e); }
+      }
+
+      const savedBcv = localStorage.getItem('pos_bcv');
+      if (savedBcv) {
+        const parsedBcv = parseFloat(savedBcv);
+        if (!isNaN(parsedBcv)) setExchangeRate(parsedBcv);
+      }
     }
-    return 776.00;
-  });
+  }, []);
 
   const [currentUsername, setCurrentUsername] = useState<string>('admin');
   const [rolesList, setRolesList] = useState(getRoles());
@@ -181,15 +184,21 @@ export default function DashboardPOS() {
   const [newStock, setNewStock] = useState('');
 
   useEffect(() => {
-    localStorage.setItem('pos_credits', JSON.stringify(credits));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('pos_credits', JSON.stringify(credits));
+    }
   }, [credits]);
 
   useEffect(() => {
-    localStorage.setItem('pos_payables', JSON.stringify(payables));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('pos_payables', JSON.stringify(payables));
+    }
   }, [payables]);
 
   useEffect(() => {
-    localStorage.setItem('pos_bcv', exchangeRate.toString());
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('pos_bcv', exchangeRate.toString());
+    }
   }, [exchangeRate]);
 
   const addToCart = (product: Product) => {
@@ -267,7 +276,6 @@ export default function DashboardPOS() {
     }
   };
 
-  // FUNCIÓN CORREGIDA Y SINCRONIZADA CON LA NUBE PARA ELIMINAR
   const deleteProduct = async (id: number) => {
     if (!confirm("¿Estás seguro de eliminar este producto de la base de datos?")) return;
 
