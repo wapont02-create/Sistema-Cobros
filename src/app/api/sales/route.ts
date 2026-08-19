@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     
     await db.sql(saleQuery);
 
-    // 2. Obtener el ID de la venta recién insertada mediante una consulta directa
+    // 2. Obtener el ID de la venta recién insertada
     const idResult: any = await db.sql("SELECT last_insert_rowid() as id;");
     
     let saleId = 0;
@@ -77,8 +77,8 @@ export async function GET() {
   try {
     if (!connectionString) throw new Error('Configuración de BD faltante');
     
-    const db = new Database(connectionString);
-    const sales = await db.sql("SELECT * FROM sales ORDER BY id DESC");
+    db = new Database(connectionString);
+    const sales = await db.sql("SELECT id, customer_id, total_usd, payment_method, created_at FROM sales ORDER BY id DESC");
     
     return NextResponse.json(sales, { status: 200 });
   } catch (error: any) {
