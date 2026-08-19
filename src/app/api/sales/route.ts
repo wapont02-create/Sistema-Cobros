@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@sqlitecloud/drivers';
 
-// Usamos DATABASE_URL que es la variable que ya tienes configurada en Vercel
 const connectionString = process.env.DATABASE_URL || '';
 
 export async function POST(request: Request) {
@@ -9,8 +8,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
-      subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, 
-      paymentMethod, changeUSD, clientName, items 
+      totalUSD, 
+      paymentMethod, 
+      customerId, 
+      items 
     } = body;
 
     if (!items || items.length === 0) {
@@ -23,21 +24,22 @@ export async function POST(request: Request) {
 
     db = new Database(connectionString);
 
-    // 1. Insertar venta principal
+    // 1. Insertar venta principal usando created_at (automático) y total_usd
     const saleQuery = `
-      INSERT INTO sales (date, subtotal_usd, iva_usd, total_usd, total_bs, exchange_rate, payment_method, change_usd, client_name) 
-      VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sales (customer_id, total_usd, payment_method) 
+      VALUES (?, ?, ?)
     `;
     
     const saleResult = await db.sql(saleQuery, [
-      subtotalUSD || 0, ivaUSD || 0, totalUSD || 0, totalBs || 0, 
-      exchangeRate || 0, paymentMethod || 'Efectivo', changeUSD || 0, clientName || 'General'
+      customerId || null, 
+      totalUSD || 0, 
+      paymentMethod || 'Efectivo'
     ]);
 
     const saleId = saleResult.lastInsertRowid;
 
-    // 2. Insertar items asociados
-    if (saleId) {
+    // 2. Insertar items asociados si aplica
+    if (saleId && items.length > 0) {
       for (const item of items) {
         const itemQuery = `
           INSERT INTO sale_items (sale_id, product_id, quantity, price_at_sale) 
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Venta guardada', saleId });
+    return NextResponse.json({ success: true, message: 'Venta guardada exitosamente', saleId });
 
   } catch (error: any) {
     console.error('Error en POST /api/sales:', error);
