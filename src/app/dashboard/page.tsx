@@ -191,43 +191,209 @@ function POSCustomerSelector({ onSelectCustomer }: { onSelectCustomer: (client: 
 }
 
 // Módulo de Caja Chica (Apertura y Cierre con Conteo Ciego)
+type CashRegisterSession = {
+  id: number;
+  status: 'Abierta' | 'Cerrada';
+  openedAt: string;
+  closedAt?: string;
+  openingUSD: number;
+  openingBs: number;
+  countedUSD?: number;
+  countedBs?: number;
+  expectedUSD?: number;
+  expectedBs?: number;
+  differenceUSD?: number;
+  differenceBs?: number;
+};
+
+const CASH_REGISTER_STORAGE_KEY = 'pos_enterprise_cash_register_session';
+
 function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
-  const [isOpened, setIsOpened] = useState(false);
+  const [register, setRegister] = useState<CashRegisterSession | null>(null);
   const [openingUSD, setOpeningUSD] = useState('');
   const [openingBs, setOpeningBs] = useState('');
   const [closingModal, setClosingModal] = useState(false);
-  
   const [countedUSD, setCountedUSD] = useState('');
   const [countedBs, setCountedBs] = useState('');
-  const [registerStatus, setRegisterStatus] = useState<'Cerrada' | 'Abierta'>('Cerrada');
+  const [expectedUSD, setExpectedUSD] = useState(0);
+  const [expectedBs, setExpectedBs] = useState(0);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // La caja se recupera al montar el módulo. Esto evita que cambiar de pestaña
+  // vuelva a crear el componente con la caja cerrada.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CASH_REGISTER_STORAGE_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as CashRegisterSession;
+      if (parsed?.status === 'Abierta') {
+        setRegister(parsed);
+        setOpeningUSD(String(parsed.openingUSD));
+        setOpeningBs(String(parsed.openingBs));
+      }
+    } catch (error) {
+      console.error('Error recuperando la caja:', error);
+    }
+  }, []);
+
+  const isOpened = register?.status === 'Abierta';
 
   const handleOpenRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!openingUSD && !openingBs) return;
-    setRegisterStatus('Abierta');
-    setIsOpened(true);
-    alert('¡Caja abierta exitosamente con el fondo inicial!');
+
+    const usd = Number(openingUSD || 0);
+    const bs = Number(openingBs || 0);
+
+    if (usd < 0 || bs < 0) {
+      alert('El fondo inicial no puede ser negativo.');
+      return;
+    }
+
+    if (usd === 0 && bs === 0) {
+      alert('Ingrese al menos un fondo inicial en USD o Bs.');
+      return;
+    }
+
+    const newSession: CashRegisterSession = {
+      id: Date.now(),
+      status: 'Abierta',
+      openedAt: new Date().toISOString(),
+      openingUSD: usd,
+      openingBs: bs,
+    };
+
+    setRegister(newSession);
+    localStorage.setItem(CASH_REGISTER_STORAGE_KEY, JSON.stringify(newSession));
+    alert('¡Caja abierta exitosamente! El turno permanecerá abierto aunque cambie de pantalla.');
   };
 
-  const handleCloseRegister = () => {
-    const expectedUSD = parseFloat(openingUSD || '0') + 150; 
-    const actualUSD = parseFloat(countedUSD || '0');
-    const diffUSD = actualUSD - expectedUSD;
+  const calculateExpectedCash = async () => {
+    if (!register) return { usd: 0, bs: 0 };
 
-    alert(`--- REPORTE DE CIERRE CIEGO ---\nEfectivo Contado: $${actualUSD.toFixed(2)}\nDiferencia (Sobrante/Faltante): $${diffUSD.toFixed(2)}`);
-    setRegisterStatus('Cerrada');
-    setIsOpened(false);
+    try {
+      const response = await fetch('/api/sales');
+      if (!response.ok) throw new Error('No se pudieron consultar las ventas.');
+
+      const sales = await response.json();
+      if (!Array.isArray(sales)) return { usd: register.openingUSD, bs: register.openingBs };
+
+      const openingTime = new Date(register.openedAt).getTime();
+      let cashUSD = register.openingUSD;
+      let cashBs = register.openingBs;
+
+      sales.forEach((sale: any) => {
+        const saleDateValue = sale.created_at || sale.createdAt || sale.date;
+        const saleTime = saleDateValue ? new Date(saleDateValue).getTime() : NaN;
+        if (!Number.isFinite(saleTime) || saleTime < openingTime) return;
+
+        const method = sale.payment_method || sale.paymentMethod || 'Efectivo USD';
+        const totalUSD = Number(sale.total_usd ?? sale.totalUSD ?? 0) || 0;
+        const totalBs = Number(sale.total_bs ?? sale.totalBs ?? 0) || 0;
+
+        // Solo el efectivo modifica físicamente la caja.
+        if (method === 'Efectivo USD' || method === 'Efectivo') {
+          cashUSD += totalUSD;
+        } else if (method === 'Efectivo Bs') {
+          cashBs += totalBs || (totalUSD * exchangeRate);
+        }
+      });
+
+      return { usd: cashUSD, bs: cashBs };
+    } catch (error) {
+      console.error('Error calculando el efectivo esperado:', error);
+      throw error;
+    }
+  };
+
+  const openClosingModal = async () => {
+    if (!register) return;
+
+    setIsClosing(true);
+    try {
+      const expected = await calculateExpectedCash();
+      setExpectedUSD(expected.usd);
+      setExpectedBs(expected.bs);
+      setClosingModal(true);
+    } catch (error) {
+      alert('No se pudo calcular el efectivo esperado. Verifique la conexión e intente nuevamente.');
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
+  const handleCloseRegister = async () => {
+    if (!register) return;
+
+    const actualUSD = Number(countedUSD || 0);
+    const actualBs = Number(countedBs || 0);
+
+    if (actualUSD < 0 || actualBs < 0) {
+      alert('El efectivo contado no puede ser negativo.');
+      return;
+    }
+
+    const differenceUSD = actualUSD - expectedUSD;
+    const differenceBs = actualBs - expectedBs;
+    const closedAt = new Date().toISOString();
+
+    const closedSession: CashRegisterSession = {
+      ...register,
+      status: 'Cerrada',
+      closedAt,
+      countedUSD: actualUSD,
+      countedBs: actualBs,
+      expectedUSD,
+      expectedBs,
+      differenceUSD,
+      differenceBs,
+    };
+
+    // Guardamos el último cierre como histórico y eliminamos la sesión activa.
+    const historyKey = 'pos_enterprise_cash_register_history';
+    try {
+      const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+      localStorage.setItem(historyKey, JSON.stringify([closedSession, ...(Array.isArray(history) ? history : [])]));
+    } catch (error) {
+      console.error('Error guardando historial de caja:', error);
+    }
+
+    localStorage.removeItem(CASH_REGISTER_STORAGE_KEY);
+    setRegister(null);
+    setOpeningUSD('');
+    setOpeningBs('');
     setClosingModal(false);
     setCountedUSD('');
     setCountedBs('');
+
+    const formatUSD = (value: number) => `$${value.toFixed(2)}`;
+    const formatBs = (value: number) => `Bs. ${value.toFixed(2)}`;
+    const differenceLabelUSD = differenceUSD > 0 ? 'Sobrante' : differenceUSD < 0 ? 'Faltante' : 'Cuadre exacto';
+    const differenceLabelBs = differenceBs > 0 ? 'Sobrante' : differenceBs < 0 ? 'Faltante' : 'Cuadre exacto';
+
+    alert(
+      `--- CIERRE DE CAJA ---\n\n` +
+      `USD esperado: ${formatUSD(expectedUSD)}\n` +
+      `USD contado: ${formatUSD(actualUSD)}\n` +
+      `${differenceLabelUSD}: ${formatUSD(Math.abs(differenceUSD))}\n\n` +
+      `Bs. esperado: ${formatBs(expectedBs)}\n` +
+      `Bs. contado: ${formatBs(actualBs)}\n` +
+      `${differenceLabelBs}: ${formatBs(Math.abs(differenceBs))}`
+    );
   };
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
       <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 className="text-lg font-bold text-slate-800">🔐 Módulo de Caja Chica (Apertura y Cierre)</h3>
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${registerStatus === 'Abierta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-          Caja {registerStatus}
+        <div>
+          <h3 className="text-lg font-bold text-slate-800">🔐 Módulo de Caja (Apertura y Cierre)</h3>
+          {register && (
+            <p className="text-[10px] text-slate-500 mt-1">
+              Apertura: {new Date(register.openedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isOpened ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+          Caja {isOpened ? 'Abierta' : 'Cerrada'}
         </span>
       </div>
 
@@ -237,11 +403,11 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] text-slate-600 mb-1">Efectivo USD ($)</label>
-              <input type="number" step="0.01" required value={openingUSD} onChange={(e) => setOpeningUSD(e.target.value)} placeholder="0.00" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold" />
+              <input type="number" min="0" step="0.01" required value={openingUSD} onChange={(e) => setOpeningUSD(e.target.value)} placeholder="0.00" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold" />
             </div>
             <div>
               <label className="block text-[11px] text-slate-600 mb-1">Efectivo Bs (Bs.)</label>
-              <input type="number" step="0.01" required value={openingBs} onChange={(e) => setOpeningBs(e.target.value)} placeholder="0.00" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold" />
+              <input type="number" min="0" step="0.01" required value={openingBs} onChange={(e) => setOpeningBs(e.target.value)} placeholder="0.00" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold" />
             </div>
           </div>
           <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
@@ -250,11 +416,13 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
         </form>
       ) : (
         <div className="space-y-3">
-          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-xs space-y-1 text-emerald-800">
-            <div>Turno activo. Fondo inicial registrado: <strong>${openingUSD} USD</strong> / <strong>Bs. {openingBs}</strong></div>
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-xs space-y-2 text-emerald-800">
+            <div className="font-bold">🟢 Turno activo</div>
+            <div>Fondo inicial: <strong>${register?.openingUSD.toFixed(2)} USD</strong> / <strong>Bs. {register?.openingBs.toFixed(2)}</strong></div>
+            <div className="text-[10px] text-emerald-700">Puedes cambiar de pantalla. La caja seguirá abierta.</div>
           </div>
-          <button onClick={() => setClosingModal(true)} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
-            Realizar Conteo Ciego y Cerrar Turno 🔒
+          <button disabled={isClosing} onClick={openClosingModal} className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
+            {isClosing ? 'Calculando efectivo esperado...' : 'Realizar Conteo Ciego y Cerrar Turno 🔒'}
           </button>
         </div>
       )}
@@ -263,14 +431,20 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-xl space-y-4">
             <h3 className="text-lg font-bold text-slate-800">Conteo Ciego de Cierre</h3>
-            <p className="text-xs text-slate-500">Ingrese el efectivo físico contado en caja sin ver el sistema para cuadrar diferencias:</p>
+            <p className="text-xs text-slate-500">Ingrese el efectivo físico contado sin mirar el monto esperado. El sistema comparará ambos valores al cerrar.</p>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+              <div className="font-bold text-slate-700">Control interno</div>
+              <div className="text-slate-500">Las ventas en efectivo realizadas después de la apertura se suman automáticamente al fondo inicial.</div>
+            </div>
+
             <div className="space-y-3">
-              <input type="number" step="0.01" placeholder="Total USD contado ($)" value={countedUSD} onChange={(e) => setCountedUSD(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold" />
-              <input type="number" step="0.01" placeholder="Total Bs contado (Bs.)" value={countedBs} onChange={(e) => setCountedBs(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold" />
+              <input type="number" min="0" step="0.01" placeholder="Total USD contado ($)" value={countedUSD} onChange={(e) => setCountedUSD(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold" />
+              <input type="number" min="0" step="0.01" placeholder="Total Bs contado (Bs.)" value={countedBs} onChange={(e) => setCountedBs(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold" />
             </div>
             <div className="flex gap-2 pt-2">
-              <button onClick={() => setClosingModal(false)} className="flex-1 bg-slate-100 py-2.5 rounded-xl text-xs font-bold">Cancelar</button>
-              <button onClick={handleCloseRegister} className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm">Confirmar Cierre ✓</button>
+              <button onClick={() => setClosingModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-2.5 rounded-xl text-xs font-bold">Cancelar</button>
+              <button onClick={handleCloseRegister} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm">Confirmar Cierre ✓</button>
             </div>
           </div>
         </div>
