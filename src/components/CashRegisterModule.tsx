@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 export default function CashRegisterModule({ exchangeRate, currentUsername, userRole }: { exchangeRate: number; currentUsername: string; userRole: string }) {
-  const [isOpened, setIsOpened] = useState(false);
+  const [isOpened, setIsOpened] = useState<boolean | null>(null); // null mientras carga
   const [openingUSD, setOpeningUSD] = useState('');
   const [openingBs, setOpeningBs] = useState('');
   const [closingModal, setClosingModal] = useState(false);
@@ -10,22 +10,31 @@ export default function CashRegisterModule({ exchangeRate, currentUsername, user
   
   const [countedUSD, setCountedUSD] = useState('');
   const [countedBs, setCountedBs] = useState('');
-  const [registerStatus, setRegisterStatus] = useState<'Cerrada' | 'Abierta'>('Cerrada');
+
+  // Sincronización constante y forzada con la base de datos
+  const checkCashStatus = async () => {
+    try {
+      const res = await fetch('/api/cash');
+      const data = await res.json();
+      if (data.isOpen && data.register) {
+        setIsOpened(true);
+        setOpenedBy(data.register.opened_by || 'Usuario');
+        setRegisterId(data.register.id);
+        setOpeningUSD(data.register.opening_usd || '0');
+        setOpeningBs(data.register.opening_bs || '0');
+      } else {
+        setIsOpened(false);
+        setOpenedBy('');
+        setRegisterId(null);
+      }
+    } catch (err) {
+      console.error("Error al sincronizar la caja:", err);
+      setIsOpened(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/cash')
-      .then(res => res.json())
-      .then(data => {
-        if (data.isOpen && data.register) {
-          setIsOpened(true);
-          setRegisterStatus('Abierta');
-          setOpenedBy(data.register.opened_by);
-          setRegisterId(data.register.id);
-          setOpeningUSD(data.register.opening_usd || '0');
-          setOpeningBs(data.register.opening_bs || '0');
-        }
-      })
-      .catch(err => console.error("Error al sincronizar la caja:", err));
+    checkCashStatus();
   }, []);
 
   const handleOpenRegister = async (e: React.FormEvent) => {
@@ -45,15 +54,11 @@ export default function CashRegisterModule({ exchangeRate, currentUsername, user
         })
       });
 
-      const data = await res.json();
       if (res.ok) {
-        setRegisterStatus('Abierta');
-        setIsOpened(true);
-        setOpenedBy(currentUsername);
-        alert(`¡Caja abierta exitosamente para el usuario ${currentUsername}!`);
-        window.location.reload();
+        alert(`¡Caja abierta exitosamente!`);
+        await checkCashStatus(); // Volver a consultar de inmediato para fijar el ID real
       } else {
-        alert(data.error || 'Error al abrir la caja');
+        alert('Error al abrir la caja');
       }
     } catch (error) {
       console.error("Error de red:", error);
@@ -75,15 +80,11 @@ export default function CashRegisterModule({ exchangeRate, currentUsername, user
       });
 
       if (res.ok) {
-        alert(`--- REPORTE DE CIERRE DE CAJA ---\nTurno cerrado correctamente por: ${openedBy}`);
-        setRegisterStatus('Cerrada');
-        setIsOpened(false);
+        alert(`--- REPORTE DE CIERRE DE CAJA ---\nTurno cerrado correctamente`);
         setClosingModal(false);
         setCountedUSD('');
         setCountedBs('');
-        setOpenedBy('');
-        setRegisterId(null);
-        window.location.reload();
+        await checkCashStatus(); // Actualizar estado a cerrado
       } else {
         alert('Error al cerrar la caja');
       }
@@ -92,12 +93,17 @@ export default function CashRegisterModule({ exchangeRate, currentUsername, user
     }
   };
 
+  // Mostrar un estado de carga breve para evitar parpadeos visuales
+  if (isOpened === null) {
+    return <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm text-xs text-slate-500">Verificando estado de caja...</div>;
+  }
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
       <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 className="text-lg font-bold text-slate-800">🔐 Módulo de Caja Chica (Turno de {currentUsername})</h3>
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${registerStatus === 'Abierta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-          Caja {registerStatus}
+        <h3 className="text-lg font-bold text-slate-800">🔐 Módulo de Caja Chica</h3>
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isOpened ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+          Caja {isOpened ? 'Abierta' : 'Cerrada'}
         </span>
       </div>
 
@@ -121,7 +127,7 @@ export default function CashRegisterModule({ exchangeRate, currentUsername, user
       ) : (
         <div className="space-y-3">
           <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-xs space-y-1 text-emerald-800">
-            <div>Turno activo para: <strong>{openedBy}</strong></div>
+            <div>Turno activo para: <strong>{openedBy}</strong> (ID Registro: #{registerId})</div>
             <div>Fondo inicial: <strong>${openingUSD} USD</strong> / <strong>Bs. {openingBs}</strong></div>
           </div>
           <button onClick={() => setClosingModal(true)} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
