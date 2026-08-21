@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../db/client';
+import { runQuery } from '../../../../db/client'; // Ajusta la ruta si es necesario
 
 export async function PUT(
   request: Request,
@@ -16,7 +16,9 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'Falta el campo stock' }, { status: 400 });
     }
 
-    await db.sql(`UPDATE products SET stock = ${stock} WHERE id = ${id};`);
+    await runQuery(async (db) => {
+      return await db.sql(`UPDATE products SET stock = ${stock} WHERE id = ${id};`);
+    });
 
     return NextResponse.json({ 
       success: true, 
@@ -44,8 +46,9 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Falta el ID del producto' }, { status: 400 });
     }
 
-    // Ejecuta la sentencia SQL para borrar el producto en SQLite Cloud
-    await db.sql(`DELETE FROM products WHERE id = ${id};`);
+    await runQuery(async (db) => {
+      return await db.sql(`DELETE FROM products WHERE id = ${id};`);
+    });
 
     return NextResponse.json({ 
       success: true, 
