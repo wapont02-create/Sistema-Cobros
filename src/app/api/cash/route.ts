@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { runQuery } from '@/db/client'; // Usando el alias global de Next.js para apuntar a la raíz/src
+import { runQuery } from '../../../db/client'; // Ajustado a 3 niveles hacia la raíz del proyecto
 
 // 1. Consultar si hay una caja abierta actualmente
 export async function GET() {
@@ -8,7 +8,6 @@ export async function GET() {
       return await db.sql("SELECT * FROM cash_registers WHERE status = 'open' ORDER BY id DESC LIMIT 1;");
     });
 
-    // Verificamos si arrojó resultados según el formato que devuelve tu cliente
     const rows = result.rows || result;
     if (!rows || rows.length === 0) {
       return NextResponse.json({ isOpen: false });
