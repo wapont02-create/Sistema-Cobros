@@ -60,6 +60,136 @@ type PayableAccount = {
 
 const IVA_RATE = 0.16;
 
+// Componente para buscar o registrar clientes rápidamente al facturar
+function POSCustomerSelector({ onSelectCustomer }: { onSelectCustomer: (client: { name: string; document: string; phone: string }) => void }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  
+  const [newName, setNewName] = useState('');
+  const [newDoc, setNewDoc] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+
+  useEffect(() => {
+    if (query.length > 1) {
+      fetch(`/api/customers?q=${query}`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setResults(data);
+            setShowDropdown(true);
+          }
+        })
+        .catch(err => console.error("Error buscando clientes:", err));
+    } else {
+      setResults([]);
+      setShowDropdown(false);
+    }
+  }, [query]);
+
+  const handleRegisterQuickCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName) return;
+    try {
+      const res = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName, rif_ci: newDoc, phone: newPhone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        onSelectCustomer({ name: newName, document: newDoc || 'V-00000000', phone: newPhone || 'N/A' });
+        setIsAddingNew(false);
+        setQuery(newName);
+        setNewName(''); setNewDoc(''); setNewPhone('');
+        alert('¡Cliente registrado y seleccionado!');
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="relative space-y-2">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="🔍 Buscar cliente registrado (Nombre / Cédula)..."
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setShowDropdown(true);
+            }}
+            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+          />
+          {showDropdown && results.length > 0 && (
+            <ul className="absolute z-20 w-full bg-white border border-slate-200 mt-1 shadow-lg max-h-40 overflow-y-auto rounded-lg text-xs">
+              {results.map((c: any) => (
+                <li
+                  key={c.id}
+                  className="p-2 hover:bg-slate-100 cursor-pointer border-b border-slate-100 flex justify-between items-center"
+                  onClick={() => {
+                    onSelectCustomer({ name: c.name, document: c.rif_ci || 'N/A', phone: c.phone || 'N/A' });
+                    setQuery(c.name);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <span className="font-bold text-slate-800">{c.name}</span>
+                  <span className="text-slate-500">{c.rif_ci}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsAddingNew(!isAddingNew)}
+          className="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-2 rounded-lg text-xs font-bold transition"
+        >
+          {isAddingNew ? 'Cancelar' : '+ Nuevo'}
+        </button>
+      </div>
+
+      {isAddingNew && (
+        <form onSubmit={handleRegisterQuickCustomer} className="bg-blue-50/50 p-3 rounded-xl border border-blue-200 space-y-2">
+          <div className="text-[11px] font-bold text-blue-800">Registrar Cliente Rápido</div>
+          <input
+            type="text"
+            placeholder="Nombre y Apellido *"
+            required
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              placeholder="Cédula / RIF"
+              value={newDoc}
+              onChange={(e) => setNewDoc(e.target.value)}
+              className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs"
+            />
+            <input
+              type="text"
+              placeholder="Teléfono"
+              value={newPhone}
+              onChange={(e) => setNewPhone(e.target.value)}
+              className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs"
+            />
+          </div>
+          <button type="submit" className="w-full bg-blue-600 text-white rounded py-1.5 text-xs font-bold shadow-2xs">
+            Guardar y Seleccionar ⚡
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardPOS() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -366,7 +496,7 @@ export default function DashboardPOS() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     if (paymentMethod === 'Crédito / Fiado' && !clientName) {
-      alert('Debe ingresar el nombre del cliente para registrar una venta a crédito.');
+      alert('Debe seleccionar o ingresar el nombre del cliente para registrar una venta a crédito.');
       return;
     }
     const salePayload = {
@@ -498,7 +628,6 @@ export default function DashboardPOS() {
   const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + (c.totalDebtUSD || 0), 0);
   const pendingPayablesUSD = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + (p.totalDebtUSD || 0), 0);
 
-  // Filtrado avanzado de ventas para el reporte
   const filteredSalesHistory = salesHistory.filter(s => {
     if (reportFilterPeriod === 'all') return true;
     const saleDate = new Date(s.date);
@@ -521,7 +650,6 @@ export default function DashboardPOS() {
   const totalSalesRevenueBs = filteredSalesHistory.reduce((sum, s) => sum + Number(s.totalBs || 0), 0);
   const totalTaxesCollected = filteredSalesHistory.reduce((sum, s) => sum + Number(s.ivaUSD || 0), 0);
 
-  // Cálculo de Ganancia Neta y Costos en base a los items vendidos
   const totalCostUSD = filteredSalesHistory.reduce((sum, s) => {
     const itemsCost = (s.items || []).reduce((itemSum, item) => {
       const prodRef = products.find(p => p.id === item.id);
@@ -532,10 +660,8 @@ export default function DashboardPOS() {
   }, 0);
   const estimatedNetProfitUSD = totalSalesRevenueUSD - totalCostUSD - totalTaxesCollected;
 
-  // Ticket promedio
   const averageTicketUSD = filteredSalesHistory.length > 0 ? totalSalesRevenueUSD / filteredSalesHistory.length : 0;
 
-  // Producto estrella (más vendido en unidades)
   const productSalesCount: Record<string, { name: string; qty: number; revenue: number }> = {};
   filteredSalesHistory.forEach(s => {
     (s.items || []).forEach(item => {
@@ -770,20 +896,16 @@ RESUMEN GENERAL:
 
               {paymentMethod === 'Crédito / Fiado' ? (
                 <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200 space-y-2.5">
-                  <div className="text-xs font-bold text-amber-800">Datos del Cliente (Crédito)</div>
-                  <div>
-                    <label className="block text-[10px] text-slate-600 mb-0.5">Nombre y Apellido *</label>
-                    <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ej. Juan Pérez" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-slate-600 mb-0.5">Cédula / RIF</label>
-                      <input type="text" value={clientDocument} onChange={(e) => setClientDocument(e.target.value)} placeholder="V-12345678" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-600 mb-0.5">Teléfono</label>
-                      <input type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="0414-0000000" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500" />
-                    </div>
+                  <div className="text-xs font-bold text-amber-800">Seleccionar Cliente (Crédito)</div>
+                  
+                  <POSCustomerSelector onSelectCustomer={(client) => {
+                    setClientName(client.name);
+                    setClientDocument(client.document);
+                    setClientPhone(client.phone);
+                  }} />
+
+                  <div className="text-[11px] text-slate-600 pt-1">
+                    Seleccionado: <strong className="text-slate-800">{clientName || 'Ninguno'}</strong> ({clientDocument})
                   </div>
                 </div>
               ) : (
