@@ -6,20 +6,25 @@ if (!connectionString) {
   console.error('ADVERTENCIA: La variable de entorno DATABASE_URL no está configurada.');
 }
 
-// Función auxiliar recomendada para ejecutar consultas abriendo y cerrando la conexión de forma segura
-export async function runQuery(queryCallback: (db: InstanceType<typeof Database>) => Promise<any>) {
+// Instancia global de compatibilidad para rutas antiguas que usan { db }
+export const db = new Database(connectionString);
+
+/**
+ * Función recomendada para abrir, ejecutar y cerrar la conexión automáticamente 
+ * por cada petición, evitando saturar SQLite Cloud.
+ */
+export async function runQuery(queryCallback: (database: InstanceType<typeof Database>) => Promise<any>) {
   if (!connectionString) {
     throw new Error('DATABASE_URL no está configurada.');
   }
 
-  const db = new Database(connectionString);
+  const client = new Database(connectionString);
 
   try {
-    return await queryCallback(db);
+    return await queryCallback(client);
   } finally {
-    // Cerramos la conexión de manera segura para liberar el slot inmediatamente
     try {
-      db.close();
+      client.close();
     } catch (closeError) {
       console.error("Error al cerrar la conexión con SQLite Cloud:", closeError);
     }
