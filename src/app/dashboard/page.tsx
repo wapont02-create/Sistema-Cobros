@@ -106,8 +106,9 @@ export default function DashboardPOS() {
   const [newTaxable, setNewTaxable] = useState(true);
   const [newStock, setNewStock] = useState('');
 
-  // Estado para el último ticket impreso térmicamente
+  // Estados para el ticket térmico y el modal de éxito con opción de impresión
   const [lastPrintedSale, setLastPrintedSale] = useState<any>(null);
+  const [successModalData, setSuccessModalData] = useState<{ isOpen: boolean; changeUSD: number; changeBs: number; isCredit: boolean; clientName?: string } | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -422,7 +423,6 @@ export default function DashboardPOS() {
           setSalesHistory(formattedSales as SaleRecord[]);
         }
 
-        // Configurar datos para impresión automática del ticket térmico[cite: 4]
         const completedSaleData = {
           id: result.saleId || Date.now(),
           date: new Date().toLocaleString(),
@@ -438,28 +438,37 @@ export default function DashboardPOS() {
         };
         setLastPrintedSale(completedSaleData);
 
-        setTimeout(() => {
-          window.print();
-        }, 300);
-
         if (paymentMethod === 'Crédito / Fiado') {
           const newCredit: CreditAccount = {
             id: Date.now(), clientName, clientPhone: clientPhone || 'N/A', clientDocument: clientDocument || 'N/A',
             totalDebtUSD: totalUSD, totalDebtBs: totalBs, date: new Date().toLocaleString(), status: 'Pendiente', saleId: result.saleId,
           };
           setCredits(prev => [newCredit, ...prev]);
-          alert(`¡Crédito registrado con éxito para ${clientName}!`);
-        } else {
-          alert(`¡Pago procesado con éxito!\nVuelto: $${Number(changeUSD || 0).toFixed(2)}`);
         }
 
-        setCart([]); setCashGivenUSD(''); setClientName(''); setClientPhone(''); setClientDocument(''); setIsCheckoutModalOpen(false);
+        setIsCheckoutModalOpen(false);
+        // Abrir modal de éxito con opción de impresión
+        setSuccessModalData({
+          isOpen: true,
+          changeUSD,
+          changeBs,
+          isCredit: paymentMethod === 'Crédito / Fiado',
+          clientName: paymentMethod === 'Crédito / Fiado' ? clientName : undefined
+        });
+
+        setCart([]); setCashGivenUSD(''); setClientName(''); setClientPhone(''); setClientDocument('');
       } else {
         alert('Error al procesar la venta: ' + result.error);
       }
     } catch (error) {
       console.error("Error al procesar venta:", error);
     }
+  };
+
+  const handlePrintReceipt = () => {
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   const payCredit = (creditId: number) => {
@@ -751,6 +760,46 @@ RESUMEN GENERAL:
         </div>
       )}
 
+      {/* Modal de Venta Exitosa con Opciones de Impresión */}
+      {successModalData && successModalData.isOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 text-center">
+            <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+              ✓
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white">¡Venta Procesada con Éxito!</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                {successModalData.isCredit ? `Crédito registrado correctamente para ${successModalData.clientName}` : 'La transacción se ha registrado y descontado del inventario.'}
+              </p>
+            </div>
+
+            {!successModalData.isCredit && (
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-around items-center">
+                <div>
+                  <div className="text-xs text-slate-400">Vuelto en USD</div>
+                  <div className="text-lg font-bold text-emerald-400">${Number(successModalData.changeUSD || 0).toFixed(2)}</div>
+                </div>
+                <div className="h-8 w-px bg-slate-800"></div>
+                <div>
+                  <div className="text-xs text-slate-400">Vuelto en Bs.</div>
+                  <div className="text-sm font-bold text-emerald-400">Bs. {Number(successModalData.changeBs || 0).toFixed(2)}</div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 pt-2">
+              <button onClick={() => { handlePrintReceipt(); setSuccessModalData(null); }} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-2">
+                🖨️ Imprimir Recibo
+              </button>
+              <button onClick={() => setSuccessModalData(null)} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs transition">
+                Continuar sin Imprimir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isRestockModalOpen && selectedProductForRestock && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
@@ -1036,7 +1085,7 @@ RESUMEN GENERAL:
 
       {activeTab === 'roles' && <RolesManagerModule />}
 
-      {/* Renderizado condicional del componente de ticket térmico para impresión automática */}
+      {/* Renderizado condicional del componente de ticket térmico para impresión manual por botón */}
       {lastPrintedSale && (
         <ReceiptTicket
           saleId={lastPrintedSale.id}
