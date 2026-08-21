@@ -81,6 +81,7 @@ export default function DashboardPOS() {
   const [restockAmount, setRestockAmount] = useState('');
 
   const [inventoryFilterMode, setInventoryFilterMode] = useState<'all' | 'low'>('all');
+  const [reportFilterPeriod, setReportFilterPeriod] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   const [newProviderName, setNewProviderName] = useState('');
   const [newProviderDoc, setNewProviderDoc] = useState('');
@@ -497,12 +498,58 @@ export default function DashboardPOS() {
   const pendingCreditsUSD = credits.filter(c => c.status === 'Pendiente').reduce((sum, c) => sum + (c.totalDebtUSD || 0), 0);
   const pendingPayablesUSD = payables.filter(p => p.status === 'Pendiente').reduce((sum, p) => sum + (p.totalDebtUSD || 0), 0);
 
-  const totalSalesRevenueUSD = salesHistory.reduce((sum, s) => sum + Number(s.totalUSD || 0), 0);
-  const totalSalesRevenueBs = salesHistory.reduce((sum, s) => sum + Number(s.totalBs || 0), 0);
-  const totalTaxesCollected = salesHistory.reduce((sum, s) => sum + Number(s.ivaUSD || 0), 0);
+  // Filtrado avanzado de ventas para el reporte
+  const filteredSalesHistory = salesHistory.filter(s => {
+    if (reportFilterPeriod === 'all') return true;
+    const saleDate = new Date(s.date);
+    const now = new Date();
+    if (reportFilterPeriod === 'today') {
+      return saleDate.toDateString() === now.toDateString();
+    }
+    if (reportFilterPeriod === 'week') {
+      const diffTime = Math.abs(now.getTime() - saleDate.getTime());
+      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      return diffDays <= 7;
+    }
+    if (reportFilterPeriod === 'month') {
+      return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
+    }
+    return true;
+  });
+
+  const totalSalesRevenueUSD = filteredSalesHistory.reduce((sum, s) => sum + Number(s.totalUSD || 0), 0);
+  const totalSalesRevenueBs = filteredSalesHistory.reduce((sum, s) => sum + Number(s.totalBs || 0), 0);
+  const totalTaxesCollected = filteredSalesHistory.reduce((sum, s) => sum + Number(s.ivaUSD || 0), 0);
+
+  // Cálculo de Ganancia Neta y Costos en base a los items vendidos
+  const totalCostUSD = filteredSalesHistory.reduce((sum, s) => {
+    const itemsCost = (s.items || []).reduce((itemSum, item) => {
+      const prodRef = products.find(p => p.id === item.id);
+      const cost = prodRef ? prodRef.costPrice : (item.costPrice || 0);
+      return itemSum + (cost * item.quantity);
+    }, 0);
+    return sum + itemsCost;
+  }, 0);
+  const estimatedNetProfitUSD = totalSalesRevenueUSD - totalCostUSD - totalTaxesCollected;
+
+  // Ticket promedio
+  const averageTicketUSD = filteredSalesHistory.length > 0 ? totalSalesRevenueUSD / filteredSalesHistory.length : 0;
+
+  // Producto estrella (más vendido en unidades)
+  const productSalesCount: Record<string, { name: string; qty: number; revenue: number }> = {};
+  filteredSalesHistory.forEach(s => {
+    (s.items || []).forEach(item => {
+      if (!productSalesCount[item.name]) {
+        productSalesCount[item.name] = { name: item.name, qty: 0, revenue: 0 };
+      }
+      productSalesCount[item.name].qty += item.quantity;
+      productSalesCount[item.name].revenue += (item.price || 0) * item.quantity;
+    });
+  });
+  const topProductObj = Object.values(productSalesCount).sort((a, b) => b.qty - a.qty)[0] || null;
 
   const getMethodStats = (method: string) => {
-    const filtered = salesHistory.filter(s => {
+    const filtered = filteredSalesHistory.filter(s => {
       const sMethod = s.paymentMethod as string;
       if (method === 'Efectivo USD' && (sMethod === 'Efectivo' || sMethod === 'Efectivo USD')) return true;
       if (method === 'Pago Móvil' && (sMethod === 'Pago Móvil' || sMethod === 'Pago Movil')) return true;
@@ -526,15 +573,17 @@ export default function DashboardPOS() {
        REPORTE DE CIERRE DE CAJA (Z)     
 ========================================
 Fecha de Emisión: ${new Date().toLocaleString()}
+Periodo: ${reportFilterPeriod.toUpperCase()}
 Tasa BCV Aplicada: Bs. ${exchangeRate}
 ----------------------------------------
 RESUMEN GENERAL:
-- Transacciones Totales: ${salesHistory.length}
+- Transacciones Totales: ${filteredSalesHistory.length}
 - Ingresos Totales (USD): $${Number(totalSalesRevenueUSD || 0).toFixed(2)}
 - Ingresos Totales (Bs.): Bs. ${Number(totalSalesRevenueBs || 0).toFixed(2)}
+- Ganancia Neta Estimada (USD): $${Number(estimatedNetProfitUSD || 0).toFixed(2)}
+- Ticket Promedio (USD): $${Number(averageTicketUSD || 0).toFixed(2)}
 - IVA Total Recaudado (16%): $${Number(totalTaxesCollected || 0).toFixed(2)}
-- Cuentas por Cobrar Pendientes: $${Number(pendingCreditsUSD || 0).toFixed(2)}
-- Cuentas por Pagar Pendientes: $${Number(pendingPayablesUSD || 0).toFixed(2)}
+- Producto Estrella: ${topProductObj ? `${topProductObj.name} (${topProductObj.qty} un.)` : 'N/A'}
 ----------------------------------------`.trim();
     const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -1024,42 +1073,57 @@ RESUMEN GENERAL:
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800">Dashboard de Analítica y Cierre Z Pro</h2>
-              <span className="text-sm text-slate-500">Auditoría financiera, tendencias de facturación y métodos de pago</span>
+              <span className="text-sm text-slate-500">Auditoría financiera, ganancias netas y tendencias de facturación</span>
             </div>
-            {salesHistory.length > 0 && (
-              <button onClick={downloadReportZ} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-sm flex items-center gap-2">
-                📥 Descargar Reporte Z (TXT)
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              <div className="flex bg-white border border-slate-200 p-1 rounded-xl gap-1 shadow-2xs text-xs">
+                <button onClick={() => setReportFilterPeriod('all')} className={`px-3 py-1.5 rounded-lg font-semibold ${reportFilterPeriod === 'all' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Histórico</button>
+                <button onClick={() => setReportFilterPeriod('today')} className={`px-3 py-1.5 rounded-lg font-semibold ${reportFilterPeriod === 'today' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Hoy</button>
+                <button onClick={() => setReportFilterPeriod('week')} className={`px-3 py-1.5 rounded-lg font-semibold ${reportFilterPeriod === 'week' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Semana</button>
+                <button onClick={() => setReportFilterPeriod('month')} className={`px-3 py-1.5 rounded-lg font-semibold ${reportFilterPeriod === 'month' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}>Mes</button>
+              </div>
+              {filteredSalesHistory.length > 0 && (
+                <button onClick={downloadReportZ} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-sm flex items-center gap-2">
+                  📥 Reporte Z (TXT)
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-              <div className="text-xs text-slate-500 mb-1">Ingresos Totales en Caja</div>
+              <div className="text-xs text-slate-500 mb-1">Ingresos Totales</div>
               <div className="text-2xl font-black text-blue-600">${Number(totalSalesRevenueUSD || 0).toFixed(2)}</div>
               <div className="text-xs text-emerald-600 mt-1 font-semibold">Bs. {Number(totalSalesRevenueBs || 0).toFixed(2)}</div>
             </div>
             <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-              <div className="text-xs text-slate-500 mb-1">Cuentas x Cobrar Pendientes</div>
-              <div className="text-2xl font-black text-amber-600">${Number(pendingCreditsUSD || 0).toFixed(2)}</div>
-              <div className="text-xs text-slate-400 mt-1">Fiados a clientes</div>
+              <div className="text-xs text-slate-500 mb-1">Ganancia Neta Estimada</div>
+              <div className="text-2xl font-black text-emerald-600">${Number(estimatedNetProfitUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-400 mt-1">Margen operativo comercial</div>
             </div>
             <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-              <div className="text-xs text-slate-500 mb-1">Cuentas x Pagar (Proveedores)</div>
-              <div className="text-2xl font-black text-red-600">${Number(pendingPayablesUSD || 0).toFixed(2)}</div>
-              <div className="text-xs text-slate-400 mt-1">Deudas pendientes</div>
+              <div className="text-xs text-slate-500 mb-1">Ticket Promedio por Venta</div>
+              <div className="text-2xl font-black text-purple-600">${Number(averageTicketUSD || 0).toFixed(2)}</div>
+              <div className="text-xs text-slate-400 mt-1">Por cada transacción</div>
+            </div>
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
+              <div className="text-xs text-slate-500 mb-1">Producto Estrella (Top)</div>
+              <div className="text-lg font-bold text-slate-800 truncate" title={topProductObj ? topProductObj.name : 'Ninguno'}>
+                {topProductObj ? topProductObj.name : 'Sin ventas'}
+              </div>
+              <div className="text-xs text-blue-600 mt-1 font-semibold">{topProductObj ? `${topProductObj.qty} unidades vendidas` : 'N/A'}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">📈 Tendencia de Ventas (Historial Reciente)</h3>
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">📈 Tendencia de Ventas (Periodo Seleccionado)</h3>
               <div className="h-72 w-full">
-                {salesHistory.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-slate-400 text-xs">No hay datos suficientes para graficar.</div>
+                {filteredSalesHistory.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-slate-400 text-xs">No hay datos suficientes para graficar en este periodo.</div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={salesHistory.slice(-10)}>
+                    <LineChart data={filteredSalesHistory.slice(-10)}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 10 }} />
                       <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
