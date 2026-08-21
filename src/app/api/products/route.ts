@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../db/client'; // Ajusta la ruta de importación de tu cliente si es necesario
+import { runQuery } from '../../../db/client'; // Ajusta la ruta si es necesario según tu ubicación exacta
 
 export async function GET() {
   try {
-    const products = await db.sql(`SELECT id, name, barcode, price_usd, stock, taxable, category, cost_price FROM products`);
+    const products = await runQuery(async (db) => {
+      return await db.sql(`SELECT id, name, barcode, price_usd, stock, taxable, category, cost_price FROM products`);
+    });
 
     const formattedProducts = Array.isArray(products) ? products.map((p: any) => ({
       id: p.id,
@@ -38,10 +40,12 @@ export async function POST(request: Request) {
     const finalCategory = category || 'General';
     const finalCost = costPrice !== undefined ? Number(costPrice) : 0;
 
-    await db.sql(`
-      INSERT INTO products (name, barcode, price_usd, stock, taxable, category, cost_price) 
-      VALUES ('${name}', '${generatedBarcode}', ${price}, ${finalStock}, ${finalTaxable}, '${finalCategory}', ${finalCost})
-    `);
+    await runQuery(async (db) => {
+      return await db.sql(`
+        INSERT INTO products (name, barcode, price_usd, stock, taxable, category, cost_price) 
+        VALUES ('${name}', '${generatedBarcode}', ${price}, ${finalStock}, ${finalTaxable}, '${finalCategory}', ${finalCost})
+      `);
+    });
 
     return NextResponse.json({ success: true, message: 'Producto registrado con éxito' });
   } catch (error: any) {
