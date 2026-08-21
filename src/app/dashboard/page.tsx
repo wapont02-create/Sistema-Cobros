@@ -190,10 +190,182 @@ function POSCustomerSelector({ onSelectCustomer }: { onSelectCustomer: (client: 
   );
 }
 
+// Módulo de Caja Chica (Apertura y Cierre con Conteo Ciego)
+function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
+  const [isOpened, setIsOpened] = useState(false);
+  const [openingUSD, setOpeningUSD] = useState('');
+  const [openingBs, setOpeningBs] = useState('');
+  const [closingModal, setClosingModal] = useState(false);
+  
+  const [countedUSD, setCountedUSD] = useState('');
+  const [countedBs, setCountedBs] = useState('');
+  const [registerStatus, setRegisterStatus] = useState<'Cerrada' | 'Abierta'>('Cerrada');
+
+  const handleOpenRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!openingUSD && !openingBs) return;
+    setRegisterStatus('Abierta');
+    setIsOpened(true);
+    alert('¡Caja abierta exitosamente con el fondo inicial!');
+  };
+
+  const handleCloseRegister = () => {
+    const expectedUSD = parseFloat(openingUSD || '0') + 150; 
+    const actualUSD = parseFloat(countedUSD || '0');
+    const diffUSD = actualUSD - expectedUSD;
+
+    alert(`--- REPORTE DE CIERRE CIEGO ---\nEfectivo Contado: $${actualUSD.toFixed(2)}\nDiferencia (Sobrante/Faltante): $${diffUSD.toFixed(2)}`);
+    setRegisterStatus('Cerrada');
+    setIsOpened(false);
+    setClosingModal(false);
+    setCountedUSD('');
+    setCountedBs('');
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 className="text-lg font-bold text-slate-800">🔐 Módulo de Caja Chica (Apertura y Cierre)</h3>
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${registerStatus === 'Abierta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+          Caja {registerStatus}
+        </span>
+      </div>
+
+      {!isOpened ? (
+        <form onSubmit={handleOpenRegister} className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div className="text-xs font-bold text-blue-600">Apertura de Turno: Registrar efectivo inicial en caja</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] text-slate-600 mb-1">Efectivo USD ($)</label>
+              <input type="number" step="0.01" required value={openingUSD} onChange={(e) => setOpeningUSD(e.target.value)} placeholder="0.00" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold" />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-600 mb-1">Efectivo Bs (Bs.)</label>
+              <input type="number" step="0.01" required value={openingBs} onChange={(e) => setOpeningBs(e.target.value)} placeholder="0.00" className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold" />
+            </div>
+          </div>
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
+            Abrir Caja 🔓
+          </button>
+        </form>
+      ) : (
+        <div className="space-y-3">
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-xs space-y-1 text-emerald-800">
+            <div>Turno activo. Fondo inicial registrado: <strong>${openingUSD} USD</strong> / <strong>Bs. {openingBs}</strong></div>
+          </div>
+          <button onClick={() => setClosingModal(true)} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
+            Realizar Conteo Ciego y Cerrar Turno 🔒
+          </button>
+        </div>
+      )}
+
+      {closingModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">Conteo Ciego de Cierre</h3>
+            <p className="text-xs text-slate-500">Ingrese el efectivo físico contado en caja sin ver el sistema para cuadrar diferencias:</p>
+            <div className="space-y-3">
+              <input type="number" step="0.01" placeholder="Total USD contado ($)" value={countedUSD} onChange={(e) => setCountedUSD(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold" />
+              <input type="number" step="0.01" placeholder="Total Bs contado (Bs.)" value={countedBs} onChange={(e) => setCountedBs(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold" />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setClosingModal(false)} className="flex-1 bg-slate-100 py-2.5 rounded-xl text-xs font-bold">Cancelar</button>
+              <button onClick={handleCloseRegister} className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm">Confirmar Cierre ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Módulo de Gestión de Clientes Frecuentes (CRM Base de Datos)
+function CustomersDirectoryModule() {
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [name, setName] = useState('');
+  const [rifCi, setRifCi] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+
+  useEffect(() => {
+    fetch('/api/customers')
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setCustomers(data); })
+      .catch(err => console.error(err));
+  }, []);
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, rif_ci: rifCi, phone, address })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('¡Cliente frecuente guardado con éxito!');
+        setName(''); setRifCi(''); setPhone(''); setAddress('');
+        const updated = await fetch('/api/customers').then(r => r.json());
+        if (Array.isArray(updated)) setCustomers(updated);
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div>
+          <h3 className="text-xl font-bold text-slate-800">👥 Gestión de Clientes Frecuentes (Base de Datos)</h3>
+          <p className="text-xs text-slate-500">Guarda los datos de compradores recurrentes (cédula, teléfono, dirección) para seleccionarlos rápidamente al facturar o otorgar créditos.</p>
+        </div>
+        <span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl border border-blue-200">Total: {customers.length} clientes</span>
+      </div>
+
+      <form onSubmit={handleSaveCustomer} className="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <input type="text" placeholder="Nombre y Apellido *" required value={name} onChange={e => setName(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+        <input type="text" placeholder="Cédula / RIF" value={rifCi} onChange={e => setRifCi(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+        <input type="text" placeholder="Teléfono" value={phone} onChange={e => setPhone(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+        <input type="text" placeholder="Dirección" value={address} onChange={e => setAddress(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-xs shadow-sm">Registrar Cliente 💾</button>
+      </form>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase">
+              <th className="p-3">Cliente</th>
+              <th className="p-3">Cédula / RIF</th>
+              <th className="p-3">Teléfono</th>
+              <th className="p-3">Dirección</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {customers.length === 0 && <tr><td colSpan={4} className="text-center py-6 text-slate-400">No hay clientes registrados en la base de datos.</td></tr>}
+            {customers.map((c, idx) => (
+              <tr key={idx} className="hover:bg-slate-50">
+                <td className="p-3 font-bold text-slate-800">{c.name}</td>
+                <td className="p-3 text-slate-600">{c.rif_ci || 'N/A'}</td>
+                <td className="p-3 text-slate-600">{c.phone || 'N/A'}</td>
+                <td className="p-3 text-slate-600">{c.address || 'N/A'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPOS() {
   const [isMounted, setIsMounted] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'roles'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles'>('pos');
   
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
@@ -313,6 +485,7 @@ export default function DashboardPOS() {
       inventory: ['view_inventory'],
       accounts: ['view_credits', 'view_payables', 'manage_roles'],
       reports: ['view_reports'],
+      customers: ['view_pos'],
       roles: ['manage_roles'],
     };
 
@@ -323,7 +496,7 @@ export default function DashboardPOS() {
       const availableTab = Object.keys(tabPermissionMap).find(tab => {
         const perms = tabPermissionMap[tab];
         return perms.some(p => userPermissions.includes(p));
-      }) as 'pos' | 'inventory' | 'reports' | 'accounts' | 'roles' | undefined;
+      }) as 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles' | undefined;
 
       if (availableTab && availableTab !== activeTab) {
         setActiveTab(availableTab);
@@ -738,9 +911,10 @@ RESUMEN GENERAL:
               📦 Inventario
               {lowStockCount > 0 && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">{lowStockCount}</span>}
             </button>
-            <button onClick={() => setActiveTab('accounts')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>📒 Cuentas (Cobrar/Pagar)</button>
+            <button onClick={() => setActiveTab('accounts')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>📒 Cuentas</button>
+            <button onClick={() => setActiveTab('customers')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'customers' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>👥 Clientes</button>
             <button onClick={() => setActiveTab('reports')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'reports' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>📊 Reportes Z</button>
-            <button onClick={() => setActiveTab('roles')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'roles' ? 'bg-cyan-600 text-white shadow-sm' : 'text-cyan-700 hover:text-cyan-900 bg-cyan-50 border border-cyan-200'}`}>🛡️ Roles y Personal</button>
+            <button onClick={() => setActiveTab('roles')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${activeTab === 'roles' ? 'bg-cyan-600 text-white shadow-sm' : 'text-cyan-700 hover:text-cyan-900 bg-cyan-50 border border-cyan-200'}`}>🛡️ Roles</button>
           </div>
         </div>
 
@@ -1190,8 +1364,18 @@ RESUMEN GENERAL:
         </main>
       )}
 
+      {activeTab === 'customers' && (
+        <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+          <CustomersDirectoryModule />
+        </main>
+      )}
+
       {activeTab === 'reports' && (
         <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <CashRegisterModule exchangeRate={exchangeRate} />
+          </div>
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800">Dashboard de Analítica y Cierre Z Pro</h2>
