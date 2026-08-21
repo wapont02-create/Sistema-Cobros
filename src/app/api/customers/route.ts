@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../db/client';
+import { runQuery } from '../../../db/client'; // Ajusta la ruta si es necesario
 
 export async function GET() {
   try {
-    const result = await db.sql("SELECT * FROM customers ORDER BY id DESC");
+    const result = await runQuery(async (db) => {
+      return await db.sql("SELECT * FROM customers ORDER BY id DESC");
+    });
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error al obtener clientes:", error);
@@ -20,7 +22,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
     }
 
-    await db.sql(`INSERT INTO customers (name, rif_ci, phone) VALUES ('${name}', '${rif_ci || ''}', '${phone || ''}')`);
+    await runQuery(async (db) => {
+      return await db.sql(`INSERT INTO customers (name, rif_ci, phone) VALUES ('${name}', '${rif_ci || ''}', '${phone || ''}')`);
+    });
 
     return NextResponse.json({ success: true, message: 'Cliente registrado con éxito' });
   } catch (error) {
