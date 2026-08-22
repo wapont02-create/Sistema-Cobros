@@ -1,7 +1,10 @@
 /**
  * src/utils/rolesManager.ts
  *
- * Sistema centralizado de roles, usuarios y permisos.
+ * Sistema centralizado de Roles, Usuarios y Permisos.
+ *
+ * IMPORTANTE:
+ * Todos los componentes deben utilizar estos tipos.
  */
 
 export type Permission =
@@ -10,12 +13,15 @@ export type Permission =
   | 'edit_inventory'
   | 'view_reports'
   | 'view_payables'
-  | 'manage_payables'
-  | 'view_credits'
   | 'manage_roles'
   | 'view_users'
+  | 'view_credits'
+  | 'manage_payables'
   | 'view_dashboard';
 
+/**
+ * Estructura de un rol.
+ */
 export interface Role {
   id: string;
   name: string;
@@ -23,6 +29,12 @@ export interface Role {
   permissions: Permission[];
 }
 
+/**
+ * Estructura de un usuario.
+ *
+ * username es el identificador utilizado para
+ * iniciar sesión y seleccionar al usuario.
+ */
 export interface User {
   id: string;
   name: string;
@@ -33,27 +45,73 @@ export interface User {
 }
 
 /**
- * ============================================================
- * ROLES INICIALES
- * ============================================================
+ * Permisos disponibles para el sistema.
  */
+export const ALL_PERMISSIONS: {
+  key: Permission;
+  label: string;
+}[] = [
+  {
+    key: 'view_pos',
+    label: '🛒 Acceso a Caja POS',
+  },
+  {
+    key: 'view_inventory',
+    label: '📦 Ver Inventario',
+  },
+  {
+    key: 'edit_inventory',
+    label: '✏️ Modificar / Crear Inventario',
+  },
+  {
+    key: 'view_reports',
+    label: '📊 Ver Reportes y Cierre Z',
+  },
+  {
+    key: 'view_payables',
+    label: '📋 Ver Cuentas por Pagar',
+  },
+  {
+    key: 'view_credits',
+    label: '💰 Ver Cuentas por Cobrar',
+  },
+  {
+    key: 'manage_payables',
+    label: '💳 Gestionar Cuentas por Pagar',
+  },
+  {
+    key: 'view_users',
+    label: '👥 Ver Usuarios',
+  },
+  {
+    key: 'manage_roles',
+    label: '🛡️ Gestionar Roles y Personal',
+  },
+  {
+    key: 'view_dashboard',
+    label: '📊 Ver Dashboard',
+  },
+];
 
-const defaultRoles: Role[] = [
+/**
+ * Roles predeterminados.
+ */
+const mockRoles: Role[] = [
   {
     id: 'admin',
     name: 'Administrador',
     description:
-      'Acceso completo al sistema y administración de usuarios.',
+      'Acceso completo a todas las funciones del sistema.',
     permissions: [
       'view_pos',
       'view_inventory',
       'edit_inventory',
       'view_reports',
       'view_payables',
-      'manage_payables',
-      'view_credits',
       'manage_roles',
       'view_users',
+      'view_credits',
+      'manage_payables',
       'view_dashboard',
     ],
   },
@@ -75,7 +133,6 @@ const defaultRoles: Role[] = [
     description:
       'Puede consultar y modificar el inventario.',
     permissions: [
-      'view_pos',
       'view_inventory',
       'edit_inventory',
       'view_dashboard',
@@ -83,13 +140,11 @@ const defaultRoles: Role[] = [
   },
 
   {
-    id: 'supervisor',
-    name: 'Supervisor',
+    id: 'contador',
+    name: 'Contador',
     description:
-      'Puede consultar ventas, inventario, créditos y reportes.',
+      'Puede consultar reportes y cuentas financieras.',
     permissions: [
-      'view_pos',
-      'view_inventory',
       'view_reports',
       'view_payables',
       'view_credits',
@@ -101,7 +156,7 @@ const defaultRoles: Role[] = [
     id: 'viewer',
     name: 'Visualizador',
     description:
-      'Puede consultar información sin modificar configuraciones.',
+      'Puede consultar información sin administrar el sistema.',
     permissions: [
       'view_pos',
       'view_inventory',
@@ -114,12 +169,9 @@ const defaultRoles: Role[] = [
 ];
 
 /**
- * ============================================================
- * USUARIO ADMINISTRADOR INICIAL
- * ============================================================
+ * Usuarios iniciales.
  */
-
-const defaultUsers: User[] = [
+const mockUsers: User[] = [
   {
     id: '1',
     name: 'Administrador General',
@@ -131,53 +183,52 @@ const defaultUsers: User[] = [
 ];
 
 /**
- * ============================================================
- * STORAGE
- * ============================================================
+ * Claves utilizadas por localStorage.
  */
-
 const ROLES_STORAGE_KEY = 'pos_roles';
 const USERS_STORAGE_KEY = 'pos_users';
 
 /**
- * Obtiene roles.
+ * Obtener roles.
  */
 export function getRoles(): Role[] {
   if (typeof window === 'undefined') {
-    return defaultRoles;
+    return mockRoles;
   }
 
   try {
-    const stored = localStorage.getItem(ROLES_STORAGE_KEY);
+    const stored = localStorage.getItem(
+      ROLES_STORAGE_KEY
+    );
 
     if (!stored) {
       localStorage.setItem(
         ROLES_STORAGE_KEY,
-        JSON.stringify(defaultRoles)
+        JSON.stringify(mockRoles)
       );
 
-      return defaultRoles;
+      return mockRoles;
     }
 
     const parsed = JSON.parse(stored);
 
     if (Array.isArray(parsed)) {
-      return parsed;
+      return parsed as Role[];
     }
 
-    return defaultRoles;
+    return mockRoles;
   } catch (error) {
     console.error(
-      'Error leyendo roles:',
+      'Error obteniendo roles:',
       error
     );
 
-    return defaultRoles;
+    return mockRoles;
   }
 }
 
 /**
- * Guarda roles.
+ * Guardar roles.
  */
 export function saveRoles(
   roles: Role[]
@@ -200,11 +251,11 @@ export function saveRoles(
 }
 
 /**
- * Obtiene usuarios.
+ * Obtener usuarios.
  */
 export function getUsers(): User[] {
   if (typeof window === 'undefined') {
-    return defaultUsers;
+    return mockUsers;
   }
 
   try {
@@ -215,31 +266,57 @@ export function getUsers(): User[] {
     if (!stored) {
       localStorage.setItem(
         USERS_STORAGE_KEY,
-        JSON.stringify(defaultUsers)
+        JSON.stringify(mockUsers)
       );
 
-      return defaultUsers;
+      return mockUsers;
     }
 
     const parsed = JSON.parse(stored);
 
     if (Array.isArray(parsed)) {
-      return parsed;
+      return parsed.map(
+        (user: any): User => ({
+          id: String(user.id),
+          name: String(
+            user.name ||
+              user.nombre ||
+              user.username ||
+              'Usuario'
+          ),
+          username: String(
+            user.username ||
+              user.email ||
+              'usuario'
+          ),
+          email: user.email
+            ? String(user.email)
+            : undefined,
+          roleId: user.roleId
+            ? String(user.roleId)
+            : undefined,
+          role: String(
+            user.role ||
+              user.roleId ||
+              'cajero'
+          ),
+        })
+      );
     }
 
-    return defaultUsers;
+    return mockUsers;
   } catch (error) {
     console.error(
-      'Error leyendo usuarios:',
+      'Error obteniendo usuarios:',
       error
     );
 
-    return defaultUsers;
+    return mockUsers;
   }
 }
 
 /**
- * Guarda usuarios.
+ * Guardar usuarios.
  */
 export function saveUsers(
   users: User[]
@@ -262,31 +339,39 @@ export function saveUsers(
 }
 
 /**
- * Busca un rol por ID.
- */
-export function getRoleById(
-  roleId: string
-): Role | undefined {
-  return getRoles().find(
-    (role) => role.id === roleId
-  );
-}
-
-/**
- * Busca un usuario por username.
+ * Buscar un usuario por username.
  */
 export function getUserByUsername(
   username: string
 ): User | undefined {
-  return getUsers().find(
+  const users = getUsers();
+
+  return users.find(
     (user) =>
-      user.username.toLowerCase() ===
-      username.toLowerCase()
+      String(user.username)
+        .toLowerCase() ===
+      String(username)
+        .toLowerCase()
   );
 }
 
 /**
- * Verifica si un rol tiene un permiso.
+ * Buscar un rol por ID.
+ */
+export function getRoleById(
+  roleId: string
+): Role | undefined {
+  const roles = getRoles();
+
+  return roles.find(
+    (role) =>
+      String(role.id).toLowerCase() ===
+      String(roleId).toLowerCase()
+  );
+}
+
+/**
+ * Validar permiso.
  */
 export function hasPermission(
   roleId: string,
@@ -304,24 +389,17 @@ export function hasPermission(
 }
 
 /**
- * Verifica permisos de un usuario.
+ * Obtener permisos de un usuario.
  */
-export function userHasPermission(
-  username: string,
-  permission: Permission
-): boolean {
-  const user =
-    getUserByUsername(username);
-
-  if (!user) {
-    return false;
-  }
-
+export function getUserPermissions(
+  user: User
+): Permission[] {
   const roleId =
-    user.roleId || user.role;
+    user.roleId ||
+    user.role ||
+    '';
 
-  return hasPermission(
-    roleId,
-    permission
-  );
+  const role = getRoleById(roleId);
+
+  return role?.permissions || [];
 }
