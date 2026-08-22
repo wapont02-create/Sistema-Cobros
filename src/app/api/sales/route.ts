@@ -14,15 +14,20 @@ export async function POST(request: Request) {
       items,
     } = body;
 
-    // --------------------------------------------------
-    // 1. VALIDACIONES BÁSICAS
-    // --------------------------------------------------
+    console.log('==============================');
+    console.log('NUEVA VENTA');
+    console.log('BODY:', body);
+    console.log('==============================');
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    // =====================================================
+    // 1. VALIDAR CARRITO
+    // =====================================================
+
+    if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: 'El carrito está vacío',
+          error: 'El carrito está vacío.',
         },
         { status: 400 }
       );
@@ -40,7 +45,8 @@ export async function POST(request: Request) {
         : null;
 
     const cleanPaymentMethod =
-      paymentMethod && String(paymentMethod).trim()
+      paymentMethod &&
+      String(paymentMethod).trim()
         ? String(paymentMethod).trim()
         : 'Efectivo';
 
@@ -48,128 +54,166 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'El total de la venta debe ser mayor que 0',
+          error: 'El total de la venta debe ser mayor que 0.',
         },
         { status: 400 }
       );
     }
 
-    // --------------------------------------------------
-    // 2. TODO EL PROCESO DENTRO DE runQuery
-    // --------------------------------------------------
+    // =====================================================
+    // 2. PROCESAR TODO EN LA MISMA CONEXIÓN
+    // =====================================================
 
     const saleId = await runQuery(async (db) => {
-      // ------------------------------------------------
-      // 2.1 BUSCAR LA CAJA ABIERTA
-      // ------------------------------------------------
+
+      // ===================================================
+      // 2.1 BUSCAR CAJAS ABIERTAS
+      // ===================================================
 
       const registerResult: any = await db.sql(`
-        SELECT id
+        SELECT
+          id,
+          user_id,
+          opening_date,
+          opening_usd,
+          opening_ves,
+          status
         FROM cash_registers
-        WHERE status = 'open'
+        WHERE LOWER(TRIM(status)) = 'open'
         ORDER BY id DESC
         LIMIT 1;
       `);
 
-      const registerRows = Array.isArray(registerResult)
-        ? registerResult
-        : registerResult?.rows || [];
+      console.log(
+        'RESULTADO CAJA:',
+        registerResult
+      );
 
-      if (!registerRows || registerRows.length === 0) {
+      // ===================================================
+      // NORMALIZAR RESULTADO SQLITE CLOUD
+      // ===================================================
+
+      let registerRows: any[] = [];
+
+      if (Array.isArray(registerResult)) {
+        registerRows = registerResult;
+      } else if (
+        registerResult &&
+        Array.isArray(registerResult.rows)
+      ) {
+        registerRows = registerResult.rows;
+      } else if (
+        registerResult &&
+        Array.isArray(registerResult.data)
+      ) {
+        registerRows = registerResult.data;
+      }
+
+      console.log(
+        'CAJAS ENCONTRADAS:',
+        registerRows.length
+      );
+
+      console.log(
+        'CAJAS:',
+        registerRows
+      );
+
+      // ===================================================
+      // NO HAY CAJA
+      // ===================================================
+
+      if (registerRows.length === 0) {
         throw new Error(
           'No hay una caja abierta. Debe abrir una caja antes de registrar ventas.'
         );
       }
 
+      // ===================================================
+      // IDENTIFICAR CAJA
+      // ===================================================
+
       const openRegister = registerRows[0];
 
-      const cashRegisterId = Number(openRegister.id);
+      const cashRegisterId = Number(
+        openRegister.id
+      );
 
       if (!cashRegisterId) {
         throw new Error(
-          'No se pudo identificar correctamente la caja abierta.'
+          'La caja abierta no tiene un ID válido.'
         );
       }
 
-      // ------------------------------------------------
-      // 2.2 INSERTAR LA VENTA
-      // ------------------------------------------------
+      console.log(
+        'CAJA UTILIZADA:',
+        cashRegisterId
+      );
 
-      let saleQuery: string;
-      let saleParams: any[];
+      // ===================================================
+      // 2.2 CREAR VENTA
+      // ===================================================
 
-      if (cleanCustomerId === null) {
-        saleQuery = `
-          INSERT INTO sales (
-            customer_id,
-            total_usd,
-            total_ves,
-            exchange_rate,
-            payment_method,
-            cash_register_id
-          )
-          VALUES (?, ?, ?, ?, ?, ?);
-        `;
-
-        saleParams = [
-          null,
-          cleanTotalUSD,
-          cleanTotalBs,
-          cleanExchangeRate,
-          cleanPaymentMethod,
-          cashRegisterId,
-        ];
-      } else {
-        saleQuery = `
-          INSERT INTO sales (
-            customer_id,
-            total_usd,
-            total_ves,
-            exchange_rate,
-            payment_method,
-            cash_register_id
-          )
-          VALUES (?, ?, ?, ?, ?, ?);
-        `;
-
-        saleParams = [
+      await db.sql(
+        `
+        INSERT INTO sales (
+          customer_id,
+          total_usd,
+          total_ves,
+          exchange_rate,
+          payment_method,
+          cash_register_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?);
+        `,
+        [
           cleanCustomerId,
           cleanTotalUSD,
           cleanTotalBs,
           cleanExchangeRate,
           cleanPaymentMethod,
           cashRegisterId,
-        ];
-      }
+        ]
+      );
 
-      await db.sql(saleQuery, saleParams);
-
-      // ------------------------------------------------
+      // ===================================================
       // 2.3 OBTENER ID DE LA VENTA
-      // ------------------------------------------------
+      // ===================================================
 
-      const idResult: any = await db.sql(
-        `SELECT last_insert_rowid() AS id;`
+      const idResult: any = await db.sql(`
+        SELECT last_insert_rowid() AS id;
+      `);
+
+      console.log(
+        'RESULTADO ID VENTA:',
+        idResult
       );
 
       let generatedSaleId = 0;
 
-      if (Array.isArray(idResult) && idResult.length > 0) {
+      let idRows: any[] = [];
+
+      if (Array.isArray(idResult)) {
+        idRows = idResult;
+      } else if (
+        idResult &&
+        Array.isArray(idResult.rows)
+      ) {
+        idRows = idResult.rows;
+      } else if (
+        idResult &&
+        Array.isArray(idResult.data)
+      ) {
+        idRows = idResult.data;
+      }
+
+      if (idRows.length > 0) {
         generatedSaleId = Number(
-          idResult[0]?.id ??
-          idResult[0]?.ID ??
-          idResult[0]?.[0] ??
+          idRows[0]?.id ??
+          idRows[0]?.ID ??
+          idRows[0]?.[0] ??
           0
         );
-      } else if (idResult?.rows && idResult.rows.length > 0) {
-        generatedSaleId = Number(
-          idResult.rows[0]?.id ??
-          idResult.rows[0]?.ID ??
-          idResult.rows[0]?.[0] ??
-          0
-        );
-      } else if (idResult && typeof idResult === 'object') {
-        generatedSaleId = Number(idResult.id || 0);
       }
 
       if (!generatedSaleId) {
@@ -178,18 +222,26 @@ export async function POST(request: Request) {
         );
       }
 
-      // ------------------------------------------------
-      // 2.4 INSERTAR LOS PRODUCTOS
-      // ------------------------------------------------
+      console.log(
+        'ID VENTA:',
+        generatedSaleId
+      );
+
+      // ===================================================
+      // 2.4 INSERTAR PRODUCTOS
+      // ===================================================
 
       for (const item of items) {
+
         const prodId = Number(
           item.id ??
           item.product_id ??
           0
         );
 
-        const qty = Number(item.quantity) || 1;
+        const qty = Number(
+          item.quantity
+        ) || 1;
 
         const price = Number(
           item.price ??
@@ -199,7 +251,7 @@ export async function POST(request: Request) {
 
         if (!prodId) {
           throw new Error(
-            'Uno de los productos de la venta no tiene un ID válido.'
+            'Uno de los productos no tiene un ID válido.'
           );
         }
 
@@ -217,13 +269,13 @@ export async function POST(request: Request) {
 
         await db.sql(
           `
-            INSERT INTO sale_items (
-              sale_id,
-              product_id,
-              quantity,
-              price_at_sale
-            )
-            VALUES (?, ?, ?, ?);
+          INSERT INTO sale_items (
+            sale_id,
+            product_id,
+            quantity,
+            price_at_sale
+          )
+          VALUES (?, ?, ?, ?);
           `,
           [
             generatedSaleId,
@@ -232,25 +284,50 @@ export async function POST(request: Request) {
             price,
           ]
         );
+
+        console.log(
+          'PRODUCTO INSERTADO:',
+          {
+            saleId: generatedSaleId,
+            productId: prodId,
+            quantity: qty,
+            price,
+          }
+        );
       }
 
       return generatedSaleId;
     });
 
-    // --------------------------------------------------
-    // 3. RESPUESTA
-    // --------------------------------------------------
+    // =====================================================
+    // 3. RESPUESTA EXITOSA
+    // =====================================================
+
+    console.log(
+      'VENTA COMPLETADA:',
+      saleId
+    );
 
     return NextResponse.json({
       success: true,
-      message: 'Venta guardada exitosamente',
+      message: 'Venta guardada exitosamente.',
       saleId,
     });
 
   } catch (error: any) {
+
     console.error(
-      'Error detallado en POST /api/sales:',
-      error
+      '===================================='
+    );
+
+    console.error(
+      'ERROR POST /api/sales'
+    );
+
+    console.error(error);
+
+    console.error(
+      '===================================='
     );
 
     return NextResponse.json(
@@ -258,20 +335,21 @@ export async function POST(request: Request) {
         success: false,
         error:
           error?.message ||
-          'Error al procesar la venta en la base de datos',
+          'Error al procesar la venta en la base de datos.',
       },
       { status: 500 }
     );
   }
 }
 
-// ======================================================
+// ========================================================
 // GET - LISTAR VENTAS
-// ======================================================
+// ========================================================
 
 export async function GET() {
   try {
-    const sales = await runQuery(async (db) => {
+
+    const result = await runQuery(async (db) => {
       return await db.sql(`
         SELECT
           s.id,
@@ -287,13 +365,15 @@ export async function GET() {
       `);
     });
 
-    return NextResponse.json(sales, {
-      status: 200,
-    });
+    return NextResponse.json(
+      result,
+      { status: 200 }
+    );
 
   } catch (error: any) {
+
     console.error(
-      'Error en GET /api/sales:',
+      'ERROR GET /api/sales:',
       error
     );
 
@@ -302,7 +382,7 @@ export async function GET() {
         success: false,
         error:
           error?.message ||
-          'Error al obtener las ventas',
+          'Error al obtener las ventas.',
       },
       { status: 500 }
     );
