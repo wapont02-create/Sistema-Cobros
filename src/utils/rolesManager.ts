@@ -4,8 +4,8 @@
  * Permisos disponibles en el sistema.
  *
  * IMPORTANTE:
- * Los permisos deben coincidir exactamente con los utilizados
- * en el Dashboard y en los demás módulos.
+ * Estos permisos deben coincidir exactamente
+ * con los utilizados en Dashboard y módulos.
  */
 export type Permission =
   | 'view_pos'
@@ -33,16 +33,14 @@ export interface Role {
 export interface User {
   id: string;
   name: string;
+  username: string;
   email: string;
   roleId?: string;
   role?: string;
 }
 
 /**
- * Datos de ejemplo para los roles del sistema.
- *
- * Administrador:
- * Tiene acceso completo al sistema.
+ * Roles iniciales del sistema.
  */
 const mockRoles: Role[] = [
   {
@@ -61,11 +59,6 @@ const mockRoles: Role[] = [
     ],
   },
 
-  /**
-   * Visualizador:
-   * Puede consultar información, pero no administrar
-   * roles ni cuentas por pagar.
-   */
   {
     id: 'viewer',
     name: 'Visualizador',
@@ -81,12 +74,13 @@ const mockRoles: Role[] = [
 ];
 
 /**
- * Datos de ejemplo para los usuarios.
+ * Usuarios iniciales.
  */
 const mockUsers: User[] = [
   {
     id: '1',
     name: 'Administrador General',
+    username: 'admin',
     email: 'admin@example.com',
     roleId: 'admin',
     role: 'admin',
@@ -94,24 +88,39 @@ const mockUsers: User[] = [
 ];
 
 /**
- * Retorna la lista de roles disponibles
- * en el sistema.
+ * Obtener todos los roles.
  */
 export function getRoles(): Role[] {
   return mockRoles;
 }
 
 /**
- * Retorna la lista de usuarios disponibles
- * en el sistema.
+ * Obtener todos los usuarios.
  */
 export function getUsers(): User[] {
   return mockUsers;
 }
 
 /**
- * Valida si un rol específico cuenta
- * con un permiso determinado.
+ * Guardar usuarios.
+ *
+ * Esta función mantiene la misma referencia
+ * del arreglo interno para que los módulos
+ * que utilizan getUsers() sigan funcionando.
+ */
+export function saveUsers(users: User[]): void {
+  mockUsers.splice(0, mockUsers.length, ...users);
+}
+
+/**
+ * Guardar roles.
+ */
+export function saveRoles(roles: Role[]): void {
+  mockRoles.splice(0, mockRoles.length, ...roles);
+}
+
+/**
+ * Verificar si un rol tiene un permiso.
  */
 export function hasPermission(
   roleId: string,
