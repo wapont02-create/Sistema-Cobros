@@ -6,23 +6,27 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const email = String(body.email || '').trim().toLowerCase();
+    const email = String(body.email || '')
+      .trim()
+      .toLowerCase();
+
     const password = String(body.password || '');
 
-    console.log('LOGIN INTENTO:', {
-      email,
-      passwordLength: password.length,
-    });
-
-    // ============================================
-    // VALIDACIONES
-    // ============================================
+    console.log('==============================');
+    console.log('INTENTO DE LOGIN');
+    console.log('EMAIL:', email);
+    console.log(
+      'PASSWORD RECIBIDA:',
+      password ? 'SI' : 'NO'
+    );
+    console.log('==============================');
 
     if (!email || !password) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Debe ingresar correo y contraseña.',
+          message:
+            'Debe ingresar correo y contraseña.',
         },
         { status: 400 }
       );
@@ -55,7 +59,10 @@ export async function POST(request: Request) {
       ? result
       : result?.rows || [];
 
-    console.log('RESULTADO BUSQUEDA USUARIO:', rows);
+    console.log(
+      'USUARIOS ENCONTRADOS:',
+      rows.length
+    );
 
     // ============================================
     // USUARIO NO ENCONTRADO
@@ -65,7 +72,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Usuario no encontrado en la base de datos.',
+          message:
+            'Usuario no encontrado en la base de datos.',
         },
         { status: 401 }
       );
@@ -73,8 +81,18 @@ export async function POST(request: Request) {
 
     const user = rows[0];
 
+    console.log('USUARIO ENCONTRADO:', {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      is_active: user.is_active,
+      hasPasswordHash:
+        !!user.password_hash,
+    });
+
     // ============================================
-    // USUARIO DESACTIVADO
+    // VERIFICAR USUARIO ACTIVO
     // ============================================
 
     if (
@@ -85,50 +103,58 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Este usuario está desactivado.',
+          message:
+            'Este usuario está desactivado.',
         },
         { status: 403 }
       );
     }
 
     // ============================================
-    // VALIDAR PASSWORD
+    // OBTENER PASSWORD HASH
     // ============================================
 
-    const storedHash = String(user.password_hash || '');
+    const passwordHash = String(
+      user.password_hash || ''
+    ).trim();
 
-    if (!storedHash) {
+    if (!passwordHash) {
       console.error(
-        'El usuario no tiene password_hash:',
-        user.email
+        'El usuario no tiene password_hash.'
       );
 
       return NextResponse.json(
         {
           success: false,
-          message: 'El usuario no tiene una contraseña configurada.',
+          message:
+            'El usuario no tiene una contraseña configurada.',
         },
         { status: 500 }
       );
     }
 
-    let passwordCorrect = false;
+    // ============================================
+    // COMPARAR PASSWORD
+    // ============================================
+
+    let passwordValid = false;
 
     try {
-      passwordCorrect = await bcrypt.compare(
+      passwordValid = await bcrypt.compare(
         password,
-        storedHash
+        passwordHash
       );
-    } catch (bcryptError) {
+    } catch (error) {
       console.error(
-        'Error verificando password_hash:',
-        bcryptError
+        'ERROR BCRYPT:',
+        error
       );
 
       return NextResponse.json(
         {
           success: false,
-          message: 'La contraseña almacenada no tiene un formato válido.',
+          message:
+            'La contraseña almacenada no tiene un formato válido.',
         },
         { status: 500 }
       );
@@ -138,16 +164,16 @@ export async function POST(request: Request) {
     // PASSWORD INCORRECTO
     // ============================================
 
-    if (!passwordCorrect) {
+    if (!passwordValid) {
       console.log(
-        'CONTRASEÑA INCORRECTA PARA:',
-        user.email
+        'PASSWORD INCORRECTA'
       );
 
       return NextResponse.json(
         {
           success: false,
-          message: 'Correo o contraseña incorrectos.',
+          message:
+            'Correo o contraseña incorrectos.',
         },
         { status: 401 }
       );
@@ -157,26 +183,27 @@ export async function POST(request: Request) {
     // LOGIN CORRECTO
     // ============================================
 
+    const loggedUser = {
+      id: Number(user.id),
+      name: String(user.name || ''),
+      email: String(user.email || ''),
+      role: String(user.role || 'cajero'),
+    };
+
     console.log(
       'LOGIN EXITOSO:',
-      user.email
+      loggedUser
     );
 
     return NextResponse.json({
       success: true,
       message: 'Acceso autorizado',
-
-      user: {
-        id: Number(user.id),
-        name: user.name,
-        email: user.email,
-        role: user.role || 'cajero',
-      },
+      user: loggedUser,
     });
 
   } catch (error: any) {
     console.error(
-      'ERROR EN /api/auth/login:',
+      'ERROR EN LOGIN:',
       error
     );
 
