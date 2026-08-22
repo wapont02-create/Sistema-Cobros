@@ -1,6 +1,7 @@
 import { Database } from '@sqlitecloud/drivers';
 
-export const connectionString = process.env.DATABASE_URL || '';
+export const connectionString =
+  process.env.DATABASE_URL || '';
 
 if (!connectionString) {
   console.error(
