@@ -33,9 +33,10 @@ export async function GET() {
       ? result
       : result?.rows || [];
 
-    if (!rows || rows.length === 0) {
+    if (rows.length === 0) {
       return NextResponse.json({
         isOpen: false,
+        register: null,
       });
     }
 
@@ -45,14 +46,12 @@ export async function GET() {
     });
 
   } catch (error: any) {
-    console.error('Error al verificar la caja:', error);
+    console.error('Error al consultar caja:', error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          'Error al verificar el estado de la caja',
+        error: error?.message || 'Error al consultar la caja',
       },
       { status: 500 }
     );
@@ -74,7 +73,6 @@ export async function POST(request: Request) {
       openingBs,
       countedUSD,
       countedBs,
-      username,
       userId,
     } = body;
 
@@ -85,21 +83,62 @@ export async function POST(request: Request) {
 
     if (action === 'open') {
 
-      const cleanOpeningUSD = Number(openingUSD) || 0;
-      const cleanOpeningVes = Number(openingBs) || 0;
+      const usd = Number(openingUSD) || 0;
+      const ves = Number(openingBs) || 0;
+      const cleanUserId = Number(userId);
 
-      if (cleanOpeningUSD < 0 || cleanOpeningVes < 0) {
+      if (!cleanUserId) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Los montos de apertura no pueden ser negativos',
+            error: 'No se recibió un usuario válido para abrir la caja.',
           },
           { status: 400 }
         );
       }
 
-      // Verificar que NO exista otra caja abierta
-      const existing = await runQuery(async (db) => {
+      if (usd < 0 || ves < 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Los montos de apertura no pueden ser negativos.',
+          },
+          { status: 400 }
+        );
+      }
+
+
+      // Verificar que el usuario exista
+      const userResult = await runQuery(async (db) => {
+        return await db.sql(
+          `
+            SELECT id, name, role
+            FROM users
+            WHERE id = ?
+              AND is_active = 1
+            LIMIT 1;
+          `,
+          [cleanUserId]
+        );
+      });
+
+      const userRows = Array.isArray(userResult)
+        ? userResult
+        : userResult?.rows || [];
+
+      if (userRows.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'El usuario no existe o está inactivo.',
+          },
+          { status: 400 }
+        );
+      }
+
+
+      // Verificar que no exista otra caja abierta
+      const openResult = await runQuery(async (db) => {
         return await db.sql(`
           SELECT id
           FROM cash_registers
@@ -108,11 +147,11 @@ export async function POST(request: Request) {
         `);
       });
 
-      const existingRows = Array.isArray(existing)
-        ? existing
-        : existing?.rows || [];
+      const openRows = Array.isArray(openResult)
+        ? openResult
+        : openResult?.rows || [];
 
-      if (existingRows.length > 0) {
+      if (openRows.length > 0) {
         return NextResponse.json(
           {
             success: false,
@@ -123,87 +162,31 @@ export async function POST(request: Request) {
       }
 
 
-      // Determinar usuario
-      let cleanUserId = userId ? Number(userId) : null;
-
-      // Si no llega userId, intentar buscarlo por email
-      if (!cleanUserId && username) {
-        const userResult = await runQuery(async (db) => {
-          return await db.sql(
-            `
-              SELECT id
-              FROM users
-              WHERE email = ?
-              LIMIT 1;
-            `,
-            [username]
-          );
-        });
-
-        const userRows = Array.isArray(userResult)
-          ? userResult
-          : userResult?.rows || [];
-
-        if (userRows.length > 0) {
-          cleanUserId = Number(userRows[0].id);
-        }
-      }
-
-
-      // Insertar caja
-      await runQuery(async (db) => {
-
-        if (cleanUserId) {
-
-          return await db.sql(
-            `
-              INSERT INTO cash_registers (
-                user_id,
-                opening_date,
-                opening_usd,
-                opening_ves,
-                status
-              )
-              VALUES (
-                ?,
-                CURRENT_TIMESTAMP,
-                ?,
-                ?,
-                'open'
-              );
-            `,
-            [
-              cleanUserId,
-              cleanOpeningUSD,
-              cleanOpeningVes,
-            ]
-          );
-
-        } else {
-
-          return await db.sql(
-            `
-              INSERT INTO cash_registers (
-                opening_date,
-                opening_usd,
-                opening_ves,
-                status
-              )
-              VALUES (
-                CURRENT_TIMESTAMP,
-                ?,
-                ?,
-                'open'
-              );
-            `,
-            [
-              cleanOpeningUSD,
-              cleanOpeningVes,
-            ]
-          );
-
-        }
-
+      // Crear caja
+      const insertResult = await runQuery(async (db) => {
+        return await db.sql(
+          `
+            INSERT INTO cash_registers (
+              user_id,
+              opening_date,
+              opening_usd,
+              opening_ves,
+              status
+            )
+            VALUES (
+              ?,
+              CURRENT_TIMESTAMP,
+              ?,
+              ?,
+              'open'
+            );
+          `,
+          [
+            cleanUserId,
+            usd,
+            ves,
+          ]
+        );
       });
 
 
@@ -220,8 +203,9 @@ export async function POST(request: Request) {
 
     if (action === 'close') {
 
-      const cleanCountedUSD = Number(countedUSD) || 0;
-      const cleanCountedVes = Number(countedBs) || 0;
+      const usd = Number(countedUSD) || 0;
+      const ves = Number(countedBs) || 0;
+
 
       const registerResult = await runQuery(async (db) => {
         return await db.sql(`
@@ -241,7 +225,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: 'No existe una caja abierta para cerrar.',
+            error: 'No hay una caja abierta para cerrar.',
           },
           { status: 400 }
         );
@@ -263,8 +247,8 @@ export async function POST(request: Request) {
               AND status = 'open';
           `,
           [
-            cleanCountedUSD,
-            cleanCountedVes,
+            usd,
+            ves,
             registerId,
           ]
         );
@@ -282,24 +266,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Acción no válida',
+        error: 'Acción no válida.',
       },
       { status: 400 }
     );
 
   } catch (error: any) {
 
-    console.error(
-      'Error en la gestión de caja:',
-      error
-    );
+    console.error('Error en /api/cash:', error);
 
     return NextResponse.json(
       {
         success: false,
         error:
           error?.message ||
-          'Error al procesar la operación de caja',
+          'Error al procesar la operación de caja.',
       },
       { status: 500 }
     );
