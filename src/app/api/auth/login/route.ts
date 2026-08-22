@@ -11,9 +11,11 @@ export async function POST(request: Request) {
 
     const password = String(body?.password || '');
 
-    // ============================================
-    // 1. VALIDAR DATOS
-    // ============================================
+    console.log('==============================');
+    console.log('INTENTO DE LOGIN');
+    console.log('EMAIL:', email);
+    console.log('PASSWORD RECIBIDA:', password);
+    console.log('==============================');
 
     if (!email || !password) {
       return NextResponse.json(
@@ -24,10 +26,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    // ============================================
-    // 2. BUSCAR USUARIO
-    // ============================================
 
     const result = await runQuery(async (db) => {
       return await db.sql(
@@ -47,25 +45,18 @@ export async function POST(request: Request) {
       );
     });
 
-    // ============================================
-    // 3. NORMALIZAR RESULTADO
-    // ============================================
-
     const rows = Array.isArray(result)
       ? result
       : result?.rows || [];
 
-    console.log('LOGIN - USUARIO ENCONTRADO:', rows.length);
-
-    // ============================================
-    // 4. USUARIO NO ENCONTRADO
-    // ============================================
+    console.log('FILAS ENCONTRADAS:', rows.length);
+    console.log('USUARIO ENCONTRADO:', rows[0]);
 
     if (rows.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Correo o contraseña incorrectos',
+          message: 'Usuario no encontrado en la base de datos.',
         },
         { status: 401 }
       );
@@ -74,62 +65,44 @@ export async function POST(request: Request) {
     const user = rows[0];
 
     // ============================================
-    // 5. VERIFICAR USUARIO ACTIVO
+    // USUARIO ACTIVO
     // ============================================
 
-    if (
-      user.is_active !== undefined &&
-      user.is_active !== null &&
-      Number(user.is_active) === 0
-    ) {
+    if (Number(user.is_active) === 0) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Este usuario está desactivado.',
+          message: 'El usuario está desactivado.',
         },
         { status: 403 }
       );
     }
 
     // ============================================
-    // 6. VERIFICAR CONTRASEÑA
+    // COMPARAR CONTRASEÑA
     // ============================================
 
-    const storedPassword = String(
-      user.password_hash || ''
+    const storedPassword = String(user.password_hash || '');
+
+    console.log('PASSWORD BD:', storedPassword);
+    console.log('PASSWORD RECIBIDA:', password);
+    console.log(
+      'PASSWORD COINCIDE:',
+      storedPassword === password
     );
 
-    /*
-      IMPORTANTE:
-
-      En este momento estamos comparando directamente
-      la contraseña enviada con password_hash.
-
-      Esto funciona SOLAMENTE si en tu base de datos
-      guardaste:
-
-      Demo1234*
-
-      directamente en password_hash.
-
-      Si password_hash contiene un hash bcrypt,
-      debemos usar bcrypt.compare().
-    */
-
     if (storedPassword !== password) {
-      console.log('LOGIN - CONTRASEÑA INCORRECTA');
-
       return NextResponse.json(
         {
           success: false,
-          message: 'Correo o contraseña incorrectos',
+          message: 'La contraseña no coincide.',
         },
         { status: 401 }
       );
     }
 
     // ============================================
-    // 7. CREAR USUARIO PARA EL FRONTEND
+    // LOGIN CORRECTO
     // ============================================
 
     const loggedUser = {
@@ -139,16 +112,8 @@ export async function POST(request: Request) {
       role: String(user.role || 'cajero'),
     };
 
-    console.log('LOGIN EXITOSO:', {
-      id: loggedUser.id,
-      name: loggedUser.name,
-      email: loggedUser.email,
-      role: loggedUser.role,
-    });
-
-    // ============================================
-    // 8. RESPUESTA
-    // ============================================
+    console.log('LOGIN EXITOSO');
+    console.log(loggedUser);
 
     return NextResponse.json({
       success: true,
@@ -157,10 +122,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error(
-      'ERROR EN /api/auth/login:',
-      error
-    );
+    console.error('ERROR EN LOGIN:', error);
 
     return NextResponse.json(
       {
