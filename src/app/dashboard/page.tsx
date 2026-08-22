@@ -2,7 +2,12 @@
 import { useState, useEffect } from 'react';
 import RolesManagerModule from '../../components/RolesManagerModule';
 import ReceiptTicket from '../../components/ReceiptTicket';
-import { getRoles, getUsers } from '../../utils/rolesManager';
+import {
+  getRoles,
+  getUsers,
+  hasPermission,
+  type Permission,
+} from '../../utils/rolesManager';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 type Product = { 
@@ -59,6 +64,16 @@ type PayableAccount = {
 };
 
 const IVA_RATE = 0.16;
+
+// Mapa de permisos por pestaña tipado rígidamente con Permission[]
+const tabPermissionMap: Record<string, Permission[]> = {
+  pos: ['view_pos'],
+  inventory: ['view_inventory', 'edit_inventory'],
+  accounts: ['view_receivable', 'manage_roles'],
+  reports: ['view_reports'],
+  customers: ['view_pos'],
+  roles: ['manage_roles'],
+};
 
 // Componente para buscar o registrar clientes rápidamente al facturar
 function POSCustomerSelector({ onSelectCustomer }: { onSelectCustomer: (client: { name: string; document: string; phone: string }) => void }) {
@@ -642,37 +657,32 @@ export default function DashboardPOS() {
     return () => clearInterval(interval);
   }, []);
 
-  // --- APLICACIÓN DE SOLUCIÓN DE TYPESCRIPT CORREGIDA A .role ---
+  // --- OBTENCIÓN Y TIPADO ESTRICTO DE ROLES Y PERMISOS ---
   const currentUserObj = usersList.find(
     (u: any) =>
       String(u.username || '').toLowerCase() ===
       String(currentUsername || '').toLowerCase()
   ) || usersList[0];
 
+  const currentRole = String(currentUserObj?.role || '').toLowerCase();
+  
   const currentRoleObj = rolesList.find(
     (r: any) =>
-      String(r.id || '').toLowerCase() ===
-        String(currentUserObj?.role || '').toLowerCase() ||
-      String(r.name || '').toLowerCase() ===
-        String(currentUserObj?.role || '').toLowerCase()
+      String(r.id || '').toLowerCase() === currentRole ||
+      String(r.name || '').toLowerCase() === currentRole
   ) || rolesList[0];
-  // -----------------------------------------------------------
 
-  const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
+  const userPermissions: Permission[] = currentRoleObj?.permissions || [];
+  const requiredPermissions: Permission[] = tabPermissionMap[activeTab] || [];
+
+  const hasAccess =
+    requiredPermissions.length === 0 ||
+    requiredPermissions.some((permission) =>
+      userPermissions.includes(permission)
+    );
+  // -----------------------------------------------------
 
   useEffect(() => {
-    const tabPermissionMap: Record<string, string[]> = {
-      pos: ['view_pos'],
-      inventory: ['view_inventory'],
-      accounts: ['view_credits', 'view_payables', 'manage_roles'],
-      reports: ['view_reports'],
-      customers: ['view_pos'],
-      roles: ['manage_roles'],
-    };
-
-    const requiredPermissions = tabPermissionMap[activeTab] || [];
-    const hasAccess = requiredPermissions.length === 0 || requiredPermissions.some(p => userPermissions.includes(p));
-
     if (!hasAccess) {
       const availableTab = Object.keys(tabPermissionMap).find(tab => {
         const perms = tabPermissionMap[tab];
@@ -683,7 +693,7 @@ export default function DashboardPOS() {
         setActiveTab(availableTab);
       }
     }
-  }, [currentUsername, currentRoleObj, userPermissions, activeTab]);
+  }, [currentUsername, currentRoleObj, userPermissions, activeTab, hasAccess]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
