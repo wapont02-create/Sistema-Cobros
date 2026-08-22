@@ -1,4 +1,12 @@
-// Definición estricta de todos los permisos disponibles en el sistema POS y Dashboard
+// src/utils/rolesManager.ts
+
+/**
+ * Permisos disponibles en el sistema.
+ *
+ * IMPORTANTE:
+ * Los permisos deben coincidir exactamente con los utilizados
+ * en el Dashboard y en los demás módulos.
+ */
 export type Permission =
   | 'view_pos'
   | 'view_inventory'
@@ -10,20 +18,36 @@ export type Permission =
   | 'manage_payables'
   | 'view_dashboard';
 
-// Interfaz para la estructura de un Rol
+/**
+ * Estructura de un rol.
+ */
 export interface Role {
   id: string;
   name: string;
-  description?: string;
   permissions: Permission[];
 }
 
-// Configuración predeterminada de roles del sistema
-export const DEFAULT_ROLES: Role[] = [
+/**
+ * Estructura de un usuario.
+ */
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  roleId?: string;
+  role?: string;
+}
+
+/**
+ * Datos de ejemplo para los roles del sistema.
+ *
+ * Administrador:
+ * Tiene acceso completo al sistema.
+ */
+const mockRoles: Role[] = [
   {
     id: 'admin',
     name: 'Administrador',
-    description: 'Acceso total a todas las módulos, configuración y gestión del sistema.',
     permissions: [
       'view_pos',
       'view_inventory',
@@ -36,10 +60,15 @@ export const DEFAULT_ROLES: Role[] = [
       'view_dashboard',
     ],
   },
+
+  /**
+   * Visualizador:
+   * Puede consultar información, pero no administrar
+   * roles ni cuentas por pagar.
+   */
   {
     id: 'viewer',
-    name: 'Visualizador / Auditor',
-    description: 'Acceso de consulta a operaciones, inventario, reportes y finanzas básicas.',
+    name: 'Visualizador',
     permissions: [
       'view_pos',
       'view_inventory',
@@ -49,30 +78,50 @@ export const DEFAULT_ROLES: Role[] = [
       'view_dashboard',
     ],
   },
+];
+
+/**
+ * Datos de ejemplo para los usuarios.
+ */
+const mockUsers: User[] = [
   {
-    id: 'cashier',
-    name: 'Cajero',
-    description: 'Acceso operativo al punto de venta, inventario de consulta y control de créditos.',
-    permissions: [
-      'view_pos',
-      'view_inventory',
-      'view_credits',
-      'view_dashboard',
-    ],
+    id: '1',
+    name: 'Administrador General',
+    email: 'admin@example.com',
+    roleId: 'admin',
+    role: 'admin',
   },
 ];
 
 /**
- * Verifica si un conjunto de permisos de usuario incluye un permiso específico.
+ * Retorna la lista de roles disponibles
+ * en el sistema.
  */
-export function hasPermission(userPermissions: string[], permission: Permission): boolean {
-  return userPermissions.includes(permission);
+export function getRoles(): Role[] {
+  return mockRoles;
 }
 
 /**
- * Obtiene los permisos predeterminados de un rol por su ID.
+ * Retorna la lista de usuarios disponibles
+ * en el sistema.
  */
-export function getPermissionsByRoleId(roleId: string): Permission[] {
-  const role = DEFAULT_ROLES.find((r) => r.id === roleId);
-  return role ? role.permissions : [];
+export function getUsers(): User[] {
+  return mockUsers;
+}
+
+/**
+ * Valida si un rol específico cuenta
+ * con un permiso determinado.
+ */
+export function hasPermission(
+  roleId: string,
+  permission: Permission
+): boolean {
+  const role = mockRoles.find((r) => r.id === roleId);
+
+  if (!role) {
+    return false;
+  }
+
+  return role.permissions.includes(permission);
 }
