@@ -11,8 +11,6 @@ interface CashRegisterModuleProps {
 interface CashRegister {
   id: number;
   user_id: number;
-  opened_by?: string;
-  user_role?: string;
   opening_date?: string;
   closing_date?: string | null;
   opening_usd: number;
@@ -22,22 +20,11 @@ interface CashRegister {
   status: string;
 }
 
-interface StoredUser {
-  id?: number;
-  name?: string;
-  email?: string;
-  role?: string;
-}
-
 export default function CashRegisterModule({
   exchangeRate,
   currentUsername,
   userRole,
 }: CashRegisterModuleProps) {
-
-  // ======================================================
-  // ESTADOS
-  // ======================================================
 
   const [isOpened, setIsOpened] = useState<boolean | null>(null);
 
@@ -52,148 +39,158 @@ export default function CashRegisterModule({
   const [countedUSD, setCountedUSD] = useState('');
   const [countedBs, setCountedBs] = useState('');
 
-  const [loading, setLoading] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [userId, setUserId] = useState<number | null>(null);
 
-  const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
 
-  const [currentRegister, setCurrentRegister] =
-    useState<CashRegister | null>(null);
+  // ==================================================
+  // OBTENER USUARIO LOGUEADO
+  // ==================================================
 
-  // ======================================================
-  // OBTENER USUARIO DEL LOCALSTORAGE
-  // ======================================================
+  useEffect(() => {
 
-  const getStoredUser = (): StoredUser | null => {
     try {
+
       const storedUser = localStorage.getItem('pos_user');
 
+      console.log('USUARIO GUARDADO EN LOCALSTORAGE:', storedUser);
+
       if (!storedUser) {
-        return null;
+        console.error(
+          'No existe pos_user en localStorage.'
+        );
+
+        setUserId(null);
+        return;
       }
 
-      return JSON.parse(storedUser);
+      const user = JSON.parse(storedUser);
+
+      console.log('USUARIO PARSEADO:', user);
+
+      const id = Number(user.id);
+
+      if (!id || !Number.isFinite(id)) {
+
+        console.error(
+          'El usuario no tiene un ID válido:',
+          user
+        );
+
+        setUserId(null);
+        return;
+      }
+
+      setUserId(id);
+
     } catch (error) {
+
       console.error(
         'Error leyendo pos_user:',
         error
       );
 
-      return null;
+      setUserId(null);
     }
-  };
 
-  // ======================================================
+  }, []);
+
+  // ==================================================
   // CONSULTAR ESTADO DE CAJA
-  // ======================================================
+  // ==================================================
 
   const checkCashStatus = async () => {
-    try {
-      setLoadingStatus(true);
-      setErrorMsg('');
 
-      const res = await fetch('/api/cash', {
-        method: 'GET',
-        cache: 'no-store',
-      });
+    try {
+
+      setLoading(true);
+
+      const res = await fetch(
+        '/api/cash',
+        {
+          method: 'GET',
+          cache: 'no-store',
+        }
+      );
 
       const data = await res.json();
 
       console.log(
-        'RESPUESTA ESTADO CAJA:',
+        'RESPUESTA /api/cash:',
         data
       );
 
-      if (!res.ok) {
-        throw new Error(
-          data?.error ||
-          'No se pudo consultar el estado de la caja.'
-        );
-      }
-
-      if (data.isOpen && data.register) {
-
-        const register: CashRegister =
-          data.register;
+      if (
+        res.ok &&
+        data.isOpen &&
+        data.register
+      ) {
 
         setIsOpened(true);
 
-        setCurrentRegister(register);
-
         setRegisterId(
-          Number(register.id)
+          Number(data.register.id)
         );
 
         setOpenedBy(
-          register.opened_by ||
           currentUsername ||
           'Usuario'
         );
 
         setOpeningUSD(
           String(
-            register.opening_usd ?? 0
+            data.register.opening_usd ?? 0
           )
         );
 
         setOpeningBs(
           String(
-            register.opening_ves ?? 0
+            data.register.opening_ves ?? 0
           )
         );
 
       } else {
 
         setIsOpened(false);
-
-        setCurrentRegister(null);
-
         setRegisterId(null);
-
         setOpenedBy('');
-
         setOpeningUSD('');
-
         setOpeningBs('');
       }
 
-    } catch (error: any) {
+    } catch (error) {
 
       console.error(
-        'Error al sincronizar la caja:',
+        'Error consultando caja:',
         error
       );
 
       setIsOpened(false);
-
-      setCurrentRegister(null);
-
       setRegisterId(null);
-
-      setErrorMsg(
-        error?.message ||
-        'No se pudo consultar la caja.'
-      );
 
     } finally {
 
-      setLoadingStatus(false);
+      setLoading(false);
+
     }
   };
 
-  // ======================================================
-  // CARGAR ESTADO AL MONTAR
-  // ======================================================
+  // ==================================================
+  // CONSULTAR CUANDO TENEMOS EL USER ID
+  // ==================================================
 
   useEffect(() => {
 
-    checkCashStatus();
+    if (userId !== null) {
+      checkCashStatus();
+    }
 
-  }, []);
+  }, [userId]);
 
-  // ======================================================
+  // ==================================================
   // ABRIR CAJA
-  // ======================================================
+  // ==================================================
 
   const handleOpenRegister = async (
     e: React.FormEvent
@@ -201,55 +198,33 @@ export default function CashRegisterModule({
 
     e.preventDefault();
 
-    setErrorMsg('');
+    if (processing) return;
 
-    // ----------------------------------------------------
-    // Validar montos
-    // ----------------------------------------------------
+    if (userId === null) {
 
-    const usd =
-      Number(openingUSD) || 0;
+      alert(
+        'No se pudo identificar el usuario actual. Cierre sesión e ingrese nuevamente.'
+      );
 
-    const ves =
-      Number(openingBs) || 0;
+      return;
+    }
+
+    const usd = Number(openingUSD) || 0;
+    const ves = Number(openingBs) || 0;
 
     if (usd < 0 || ves < 0) {
 
-      setErrorMsg(
-        'Los montos de apertura no pueden ser negativos.'
+      alert(
+        'El fondo inicial no puede ser negativo.'
       );
 
       return;
     }
 
-    // ----------------------------------------------------
-    // Obtener usuario
-    // ----------------------------------------------------
+    if (usd === 0 && ves === 0) {
 
-    const storedUser =
-      getStoredUser();
-
-    if (!storedUser) {
-
-      setErrorMsg(
-        'No se encontró la sesión del usuario. Cierre sesión y vuelva a ingresar.'
-      );
-
-      return;
-    }
-
-    const userId =
-      Number(storedUser.id);
-
-    if (!userId) {
-
-      setErrorMsg(
-        'La sesión no contiene un ID de usuario válido.'
-      );
-
-      console.error(
-        'USUARIO SIN ID:',
-        storedUser
+      alert(
+        'Debe ingresar un fondo inicial en USD o Bs.'
       );
 
       return;
@@ -257,18 +232,13 @@ export default function CashRegisterModule({
 
     try {
 
-      setLoading(true);
+      setProcessing(true);
 
       console.log(
         'ABRIENDO CAJA:',
         {
+          action: 'open',
           userId,
-          username:
-            storedUser.name ||
-            currentUsername,
-          userRole:
-            storedUser.role ||
-            userRole,
           openingUSD: usd,
           openingBs: ves,
         }
@@ -278,34 +248,23 @@ export default function CashRegisterModule({
         '/api/cash',
         {
           method: 'POST',
-
           headers: {
             'Content-Type':
               'application/json',
           },
-
           body: JSON.stringify({
             action: 'open',
-
-            userId,
-
-            username:
-              storedUser.name ||
-              currentUsername,
-
-            userRole:
-              storedUser.role ||
-              userRole,
 
             openingUSD: usd,
 
             openingBs: ves,
+
+            userId: userId,
           }),
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       console.log(
         'RESPUESTA APERTURA:',
@@ -314,118 +273,53 @@ export default function CashRegisterModule({
 
       if (!res.ok || !data.success) {
 
-        setErrorMsg(
-          data?.error ||
-          'No se pudo abrir la caja.'
+        alert(
+          data.error ||
+          'Error al abrir la caja.'
         );
 
         return;
       }
 
-      // --------------------------------------------------
-      // Actualizar inmediatamente
-      // --------------------------------------------------
-
-      if (data.register) {
-
-        const register:
-          CashRegister =
-          data.register;
-
-        setCurrentRegister(
-          register
-        );
-
-        setRegisterId(
-          Number(register.id)
-        );
-
-        setOpenedBy(
-          register.opened_by ||
-          storedUser.name ||
-          currentUsername
-        );
-
-        setOpeningUSD(
-          String(
-            register.opening_usd ?? usd
-          )
-        );
-
-        setOpeningBs(
-          String(
-            register.opening_ves ?? ves
-          )
-        );
-
-        setIsOpened(true);
-
-      } else {
-
-        await checkCashStatus();
-      }
-
       alert(
-        '¡Caja abierta exitosamente!'
+        '¡Caja abierta exitosamente!\n\n' +
+        'El turno permanecerá abierto aunque cambie de pantalla.'
       );
 
-    } catch (error: any) {
+      // IMPORTANTE:
+      // Consultamos nuevamente la base de datos
+      await checkCashStatus();
+
+    } catch (error) {
 
       console.error(
         'ERROR ABRIENDO CAJA:',
         error
       );
 
-      setErrorMsg(
-        error?.message ||
-        'No se pudo conectar con el servidor.'
+      alert(
+        'Error de conexión al intentar abrir la caja.'
       );
 
     } finally {
 
-      setLoading(false);
+      setProcessing(false);
+
     }
   };
 
-  // ======================================================
-  // ABRIR MODAL DE CIERRE
-  // ======================================================
-
-  const openClosingModal = () => {
-
-    setCountedUSD('');
-    setCountedBs('');
-
-    setErrorMsg('');
-
-    setClosingModal(true);
-  };
-
-  // ======================================================
+  // ==================================================
   // CERRAR CAJA
-  // ======================================================
+  // ==================================================
 
   const handleCloseRegister = async () => {
 
+    if (processing) return;
+
     if (!registerId) {
 
-      setErrorMsg(
-        'No se pudo identificar el ID de la caja.'
-      );
-
-      return;
-    }
-
-    const usd =
-      Number(countedUSD) || 0;
-
-    const ves =
-      Number(countedBs) || 0;
-
-    if (usd < 0 || ves < 0) {
-
-      setErrorMsg(
-        'Los montos del cierre no pueden ser negativos.'
+      alert(
+        'No se encontró el ID de la caja abierta.'
       );
 
       return;
@@ -433,29 +327,19 @@ export default function CashRegisterModule({
 
     try {
 
-      setLoading(true);
+      setProcessing(true);
 
-      setErrorMsg('');
-
-      console.log(
-        'CERRANDO CAJA:',
-        {
-          registerId,
-          countedUSD: usd,
-          countedBs: ves,
-        }
-      );
+      const usd = Number(countedUSD) || 0;
+      const ves = Number(countedBs) || 0;
 
       const res = await fetch(
         '/api/cash',
         {
           method: 'POST',
-
           headers: {
             'Content-Type':
               'application/json',
           },
-
           body: JSON.stringify({
             action: 'close',
 
@@ -463,14 +347,14 @@ export default function CashRegisterModule({
 
             countedBs: ves,
 
-            registerId:
-              Number(registerId),
+            registerId: registerId,
+
+            userId: userId,
           }),
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       console.log(
         'RESPUESTA CIERRE:',
@@ -479,9 +363,9 @@ export default function CashRegisterModule({
 
       if (!res.ok || !data.success) {
 
-        setErrorMsg(
-          data?.error ||
-          'No se pudo cerrar la caja.'
+        alert(
+          data.error ||
+          'Error al cerrar la caja.'
         );
 
         return;
@@ -496,118 +380,62 @@ export default function CashRegisterModule({
       setCountedUSD('');
       setCountedBs('');
 
-      setCurrentRegister(null);
-
-      setRegisterId(null);
-
-      setOpenedBy('');
-
-      setOpeningUSD('');
-      setOpeningBs('');
-
-      setIsOpened(false);
-
       await checkCashStatus();
 
-    } catch (error: any) {
+    } catch (error) {
 
       console.error(
         'ERROR CERRANDO CAJA:',
         error
       );
 
-      setErrorMsg(
-        error?.message ||
-        'No se pudo conectar con el servidor.'
+      alert(
+        'Error de conexión al cerrar la caja.'
       );
 
     } finally {
 
-      setLoading(false);
+      setProcessing(false);
+
     }
   };
 
-  // ======================================================
-  // CÁLCULOS INFORMATIVOS
-  // ======================================================
+  // ==================================================
+  // CARGANDO
+  // ==================================================
 
-  const openingUsdValue =
-    Number(
-      currentRegister?.opening_usd ??
-      openingUSD ??
-      0
-    );
-
-  const openingBsValue =
-    Number(
-      currentRegister?.opening_ves ??
-      openingBs ??
-      0
-    );
-
-  const openingBsEquivalent =
-    exchangeRate > 0
-      ? openingUsdValue *
-        exchangeRate
-      : 0;
-
-  // ======================================================
-  // ESTADO DE CARGA
-  // ======================================================
-
-  if (loadingStatus) {
+  if (loading) {
 
     return (
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-
-        <div className="flex items-center gap-3">
-
-          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-
-          <span className="text-xs text-slate-500">
-            Verificando estado de caja...
-          </span>
-
-        </div>
-
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm text-xs text-slate-500">
+        Verificando estado de caja...
       </div>
     );
   }
 
-  // ======================================================
-  // INTERFAZ
-  // ======================================================
+  // ==================================================
+  // RENDER
+  // ==================================================
 
   return (
 
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
 
-      {/* ==================================================
-          ENCABEZADO
-      ================================================== */}
+      {/* HEADER */}
 
       <div className="flex justify-between items-center border-b border-slate-100 pb-3">
 
-        <div>
-
-          <h3 className="text-lg font-bold text-slate-800">
-            🔐 Módulo de Caja
-          </h3>
-
-          <p className="text-[11px] text-slate-500 mt-1">
-            Control de apertura y cierre de turno
-          </p>
-
-        </div>
+        <h3 className="text-lg font-bold text-slate-800">
+          🔐 Módulo de Caja Chica
+        </h3>
 
         <span
           className={`
             text-xs
             font-bold
-            px-3
-            py-1.5
+            px-2.5
+            py-1
             rounded-full
-
             ${
               isOpened
                 ? 'bg-emerald-100 text-emerald-700'
@@ -615,71 +443,40 @@ export default function CashRegisterModule({
             }
           `}
         >
-          Caja {isOpened
-            ? 'Abierta'
-            : 'Cerrada'}
+          Caja {isOpened ? 'Abierta' : 'Cerrada'}
         </span>
 
       </div>
-
-
-      {/* ==================================================
-          MENSAJE DE ERROR
-      ================================================== */}
-
-      {errorMsg && (
-
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-xs">
-
-          <strong>
-            ⚠️ Error:
-          </strong>
-
-          <div className="mt-1">
-            {errorMsg}
-          </div>
-
-        </div>
-
-      )}
-
 
       {/* ==================================================
           CAJA CERRADA
       ================================================== */}
 
-      {!isOpened ? (
+      {!isOpened && (
 
         <form
           onSubmit={handleOpenRegister}
-          className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200"
+          className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200"
         >
 
-          <div>
-
-            <div className="text-sm font-bold text-blue-600">
-              Apertura de Turno
-            </div>
-
-            <div className="text-[11px] text-slate-500 mt-1">
-              Registre el efectivo disponible al comenzar el turno.
-            </div>
-
+          <div className="text-xs font-bold text-blue-600">
+            Apertura de Turno
           </div>
 
+          <div className="text-[11px] text-slate-500 mb-2">
+            Usuario: {currentUsername || 'Usuario'}
+          </div>
 
-          {/* FONDOS INICIALES */}
+          <div className="text-[11px] text-slate-500 mb-3">
+            Rol: {userRole || 'cajero'}
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-            {/* USD */}
+          <div className="grid grid-cols-2 gap-3">
 
             <div>
 
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
-
+              <label className="block text-[11px] text-slate-600 mb-1">
                 Efectivo USD ($)
-
               </label>
 
               <input
@@ -688,26 +485,18 @@ export default function CashRegisterModule({
                 min="0"
                 value={openingUSD}
                 onChange={(e) =>
-                  setOpeningUSD(
-                    e.target.value
-                  )
+                  setOpeningUSD(e.target.value)
                 }
                 placeholder="0.00"
-                disabled={loading}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold"
               />
 
             </div>
 
-
-            {/* BOLÍVARES */}
-
             <div>
 
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
-
+              <label className="block text-[11px] text-slate-600 mb-1">
                 Efectivo Bs (Bs.)
-
               </label>
 
               <input
@@ -716,368 +505,137 @@ export default function CashRegisterModule({
                 min="0"
                 value={openingBs}
                 onChange={(e) =>
-                  setOpeningBs(
-                    e.target.value
-                  )
+                  setOpeningBs(e.target.value)
                 }
                 placeholder="0.00"
-                disabled={loading}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold"
               />
 
             </div>
 
           </div>
 
-
-          {/* REFERENCIA */}
-
-          {exchangeRate > 0 && (
-
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-
-              <div className="text-[10px] text-blue-600 font-semibold">
-                Tasa de cambio actual
-              </div>
-
-              <div className="text-sm font-bold text-blue-800 mt-1">
-                1 USD = Bs. {exchangeRate.toLocaleString('es-VE')}
-              </div>
-
-              {openingUsdValue > 0 && (
-
-                <div className="text-[10px] text-blue-600 mt-1">
-                  Fondo USD equivalente:
-                  {' '}
-                  Bs.{' '}
-                  {openingBsEquivalent.toLocaleString(
-                    'es-VE',
-                    {
-                      minimumFractionDigits: 2,
-                    }
-                  )}
-                </div>
-
-              )}
-
-            </div>
-
-          )}
-
-
-          {/* BOTÓN */}
-
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl text-sm transition shadow-sm"
+            disabled={
+              processing ||
+              userId === null
+            }
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm"
           >
 
-            {loading
+            {processing
               ? 'Abriendo caja...'
-              : '🔓 Iniciar Turno y Abrir Caja'}
+              : 'Iniciar Turno y Abrir Caja 🔓'}
 
           </button>
 
         </form>
 
-      ) : (
+      )}
 
-        /* ==================================================
-           CAJA ABIERTA
-        ================================================== */
+      {/* ==================================================
+          CAJA ABIERTA
+      ================================================== */}
 
-        <div className="space-y-4">
+      {isOpened && (
 
-          <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-xl">
+        <div className="space-y-3">
 
-            <div className="flex justify-between items-start gap-3">
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-xs space-y-1 text-emerald-800">
 
-              <div>
-
-                <div className="text-xs text-emerald-600">
-                  Turno activo
-                </div>
-
-                <div className="text-base font-bold text-emerald-800 mt-1">
-                  {openedBy}
-                </div>
-
-              </div>
-
-              <div className="text-right">
-
-                <div className="text-[10px] text-emerald-600">
-                  ID Caja
-                </div>
-
-                <div className="text-sm font-bold text-emerald-800">
-                  #{registerId}
-                </div>
-
-              </div>
-
+            <div>
+              Turno activo para:{' '}
+              <strong>
+                {openedBy}
+              </strong>
             </div>
 
-
-            {/* FONDO INICIAL */}
-
-            <div className="grid grid-cols-2 gap-3 mt-4">
-
-              <div className="bg-white/70 rounded-lg p-3">
-
-                <div className="text-[10px] text-slate-500">
-                  Fondo USD
-                </div>
-
-                <div className="text-lg font-bold text-slate-800">
-                  $
-                  {openingUsdValue.toLocaleString(
-                    'en-US',
-                    {
-                      minimumFractionDigits: 2,
-                    }
-                  )}
-                </div>
-
-              </div>
-
-
-              <div className="bg-white/70 rounded-lg p-3">
-
-                <div className="text-[10px] text-slate-500">
-                  Fondo Bs.
-                </div>
-
-                <div className="text-lg font-bold text-slate-800">
-                  Bs.
-                  {' '}
-                  {openingBsValue.toLocaleString(
-                    'es-VE',
-                    {
-                      minimumFractionDigits: 2,
-                    }
-                  )}
-                </div>
-
-              </div>
-
+            <div>
+              ID Registro:{' '}
+              <strong>
+                #{registerId}
+              </strong>
             </div>
 
-
-            {/* FECHA */}
-
-            {currentRegister?.opening_date && (
-
-              <div className="text-[10px] text-emerald-700 mt-3">
-
-                Apertura:
-                {' '}
-                {currentRegister.opening_date}
-
-              </div>
-
-            )}
+            <div>
+              Fondo inicial:{' '}
+              <strong>
+                ${Number(openingUSD).toFixed(2)} USD
+              </strong>
+              {' / '}
+              <strong>
+                Bs. {Number(openingBs).toFixed(2)}
+              </strong>
+            </div>
 
           </div>
 
-
-          {/* BOTÓN CIERRE */}
-
           <button
-            type="button"
-            onClick={openClosingModal}
-            disabled={loading}
-            className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm"
+            onClick={() =>
+              setClosingModal(true)
+            }
+            disabled={processing}
+            className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm"
           >
-
-            🔒 Realizar Conteo y Cerrar Turno
-
+            Realizar Conteo Ciego y Cerrar Turno 🔒
           </button>
 
         </div>
 
       )}
 
-
       {/* ==================================================
-          MODAL DE CIERRE
+          MODAL CIERRE
       ================================================== */}
 
       {closingModal && (
 
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-xl space-y-4">
 
-            {/* HEADER */}
+            <h3 className="text-lg font-bold text-slate-800">
+              Cierre de Turno
+            </h3>
 
-            <div className="flex justify-between items-start mb-5">
-
-              <div>
-
-                <h3 className="text-xl font-bold text-slate-800">
-                  🔒 Cierre de Caja
-                </h3>
-
-                <p className="text-xs text-slate-500 mt-1">
-                  {openedBy}
-                  {' '}
-                  • Caja #{registerId}
-                </p>
-
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setClosingModal(false)
-                }
-                className="text-slate-400 hover:text-slate-700 text-xl"
-              >
-                ✕
-              </button>
-
-            </div>
-
-
-            {/* INFORMACIÓN */}
-
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
-
-              <div className="text-xs font-semibold text-slate-600 mb-3">
-                Fondo inicial registrado
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-
-                <div>
-
-                  <div className="text-[10px] text-slate-500">
-                    USD
-                  </div>
-
-                  <div className="font-bold text-slate-800">
-                    $
-                    {openingUsdValue.toFixed(2)}
-                  </div>
-
-                </div>
-
-                <div>
-
-                  <div className="text-[10px] text-slate-500">
-                    Bolívares
-                  </div>
-
-                  <div className="font-bold text-slate-800">
-                    Bs.
-                    {' '}
-                    {openingBsValue.toFixed(2)}
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* MENSAJE */}
-
-            <p className="text-xs text-slate-500 mb-4">
-
-              Ingrese el efectivo físico que realmente encontró en caja.
-
-              {' '}
-
-              El sistema utilizará estos valores para registrar el cierre.
-
+            <p className="text-xs text-slate-500">
+              Ingrese el efectivo físico contado en caja:
             </p>
 
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Total USD contado ($)"
+              value={countedUSD}
+              onChange={(e) =>
+                setCountedUSD(e.target.value)
+              }
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"
+            />
 
-            {/* INPUTS */}
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Total Bs contado (Bs.)"
+              value={countedBs}
+              onChange={(e) =>
+                setCountedBs(e.target.value)
+              }
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"
+            />
 
-            <div className="space-y-3">
-
-              <div>
-
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-
-                  Total USD contado
-
-                </label>
-
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={countedUSD}
-                  onChange={(e) =>
-                    setCountedUSD(
-                      e.target.value
-                    )
-                  }
-                  disabled={loading}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-
-              </div>
-
-
-              <div>
-
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-
-                  Total Bs contado
-
-                </label>
-
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={countedBs}
-                  onChange={(e) =>
-                    setCountedBs(
-                      e.target.value
-                    )
-                  }
-                  disabled={loading}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-
-              </div>
-
-            </div>
-
-
-            {/* ERROR */}
-
-            {errorMsg && (
-
-              <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-xs">
-
-                {errorMsg}
-
-              </div>
-
-            )}
-
-
-            {/* BOTONES */}
-
-            <div className="flex gap-3 pt-5">
+            <div className="flex gap-2 pt-2">
 
               <button
                 type="button"
                 onClick={() =>
                   setClosingModal(false)
                 }
-                disabled={loading}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 py-3 rounded-xl text-sm font-bold transition"
+                disabled={processing}
+                className="flex-1 bg-slate-100 py-2.5 rounded-xl text-xs font-bold"
               >
                 Cancelar
               </button>
@@ -1085,14 +643,12 @@ export default function CashRegisterModule({
               <button
                 type="button"
                 onClick={handleCloseRegister}
-                disabled={loading}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-bold shadow-sm transition"
+                disabled={processing}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm"
               >
-
-                {loading
+                {processing
                   ? 'Cerrando...'
-                  : '✓ Cerrar Turno'}
-
+                  : 'Cerrar Turno ✓'}
               </button>
 
             </div>
