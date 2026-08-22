@@ -642,7 +642,7 @@ export default function DashboardPOS() {
     return () => clearInterval(interval);
   }, []);
 
-  // --- APLICACIÓN DE SOLUCIÓN DE TYPESCRIPT ---
+  // --- APLICACIÓN DE SOLUCIÓN DE TYPESCRIPT CORREGIDA A .role ---
   const currentUserObj = usersList.find(
     (u: any) =>
       String(u.username || '').toLowerCase() ===
@@ -652,11 +652,11 @@ export default function DashboardPOS() {
   const currentRoleObj = rolesList.find(
     (r: any) =>
       String(r.id || '').toLowerCase() ===
-        String(currentUserObj?.roleId || '').toLowerCase() ||
+        String(currentUserObj?.role || '').toLowerCase() ||
       String(r.name || '').toLowerCase() ===
-        String(currentUserObj?.roleId || '').toLowerCase()
+        String(currentUserObj?.role || '').toLowerCase()
   ) || rolesList[0];
-  // --------------------------------------------
+  // -----------------------------------------------------------
 
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
@@ -705,9 +705,6 @@ export default function DashboardPOS() {
 
   if (!isMounted) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-800">Cargando POS...</div>;
 
-  // ... (El resto del componente continúa igual, cerrado adecuadamente)
-  // [Nota: Aquí se mantendría la lógica original de funciones, renderizado, modales, etc.]
-  
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col relative">
        {/* (Contenido del renderizado...) */}
