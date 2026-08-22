@@ -5,11 +5,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const email = String(body?.email || '').trim().toLowerCase();
+    const email = String(body?.email || '')
+      .trim()
+      .toLowerCase();
+
     const password = String(body?.password || '');
 
     // ============================================
-    // 1. VALIDAR DATOS RECIBIDOS
+    // 1. VALIDAR DATOS
     // ============================================
 
     if (!email || !password) {
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
     }
 
     // ============================================
-    // 2. BUSCAR USUARIO EN LA BASE DE DATOS
+    // 2. BUSCAR USUARIO
     // ============================================
 
     const result = await runQuery(async (db) => {
@@ -33,8 +36,9 @@ export async function POST(request: Request) {
           id,
           name,
           email,
-          password,
-          role
+          password_hash,
+          role,
+          is_active
         FROM users
         WHERE LOWER(TRIM(email)) = ?
         LIMIT 1;
@@ -51,10 +55,10 @@ export async function POST(request: Request) {
       ? result
       : result?.rows || [];
 
-    console.log('LOGIN - FILAS ENCONTRADAS:', rows.length);
+    console.log('LOGIN - USUARIO ENCONTRADO:', rows.length);
 
     // ============================================
-    // 4. USUARIO NO EXISTE
+    // 4. USUARIO NO ENCONTRADO
     // ============================================
 
     if (rows.length === 0) {
@@ -70,12 +74,51 @@ export async function POST(request: Request) {
     const user = rows[0];
 
     // ============================================
-    // 5. VERIFICAR CONTRASEÑA
+    // 5. VERIFICAR USUARIO ACTIVO
     // ============================================
 
-    const storedPassword = String(user.password || '');
+    if (
+      user.is_active !== undefined &&
+      user.is_active !== null &&
+      Number(user.is_active) === 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Este usuario está desactivado.',
+        },
+        { status: 403 }
+      );
+    }
+
+    // ============================================
+    // 6. VERIFICAR CONTRASEÑA
+    // ============================================
+
+    const storedPassword = String(
+      user.password_hash || ''
+    );
+
+    /*
+      IMPORTANTE:
+
+      En este momento estamos comparando directamente
+      la contraseña enviada con password_hash.
+
+      Esto funciona SOLAMENTE si en tu base de datos
+      guardaste:
+
+      Demo1234*
+
+      directamente en password_hash.
+
+      Si password_hash contiene un hash bcrypt,
+      debemos usar bcrypt.compare().
+    */
 
     if (storedPassword !== password) {
+      console.log('LOGIN - CONTRASEÑA INCORRECTA');
+
       return NextResponse.json(
         {
           success: false,
@@ -86,24 +129,25 @@ export async function POST(request: Request) {
     }
 
     // ============================================
-    // 6. CREAR OBJETO DE USUARIO
+    // 7. CREAR USUARIO PARA EL FRONTEND
     // ============================================
 
     const loggedUser = {
       id: Number(user.id),
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      name: String(user.name),
+      email: String(user.email),
+      role: String(user.role || 'cajero'),
     };
 
     console.log('LOGIN EXITOSO:', {
       id: loggedUser.id,
+      name: loggedUser.name,
       email: loggedUser.email,
       role: loggedUser.role,
     });
 
     // ============================================
-    // 7. RESPUESTA
+    // 8. RESPUESTA
     // ============================================
 
     return NextResponse.json({
