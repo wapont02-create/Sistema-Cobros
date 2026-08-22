@@ -12,12 +12,42 @@ import {
 } from '../utils/rolesManager';
 
 interface RoleSelectorProps {
-  selectedId?: string | number;
+  /**
+   * ID del usuario seleccionado.
+   *
+   * Todos los IDs del sistema son string.
+   */
+  selectedId?: string;
+
+  /**
+   * Se ejecuta cuando se selecciona un usuario.
+   */
   onSelect?: (user: User | null) => void;
-  value?: string | number;
+
+  /**
+   * Valor alternativo para componentes
+   * que utilizan una API tipo select.
+   */
+  value?: string;
+
+  /**
+   * Se ejecuta cuando cambia el usuario.
+   */
   onChange?: (user: User | null) => void;
+
+  /**
+   * Texto mostrado encima del selector.
+   */
   label?: string;
+
+  /**
+   * Deshabilita el selector.
+   */
   disabled?: boolean;
+
+  /**
+   * Clases adicionales.
+   */
   className?: string;
 }
 
@@ -32,46 +62,86 @@ export default function RoleSelector({
 }: RoleSelectorProps) {
   const [users, setUsers] = useState<User[]>([]);
 
+  /**
+   * Cargar usuarios desde el administrador
+   * centralizado de roles.
+   */
   useEffect(() => {
     const loadUsers = () => {
-      const loadedUsers = getUsers();
-      setUsers(loadedUsers);
+      try {
+        const loadedUsers = getUsers();
+
+        setUsers(
+          Array.isArray(loadedUsers)
+            ? loadedUsers
+            : []
+        );
+      } catch (error) {
+        console.error(
+          'Error cargando usuarios:',
+          error
+        );
+
+        setUsers([]);
+      }
     };
 
     loadUsers();
 
+    /**
+     * Mantenemos sincronizado el selector
+     * con los usuarios guardados en localStorage.
+     */
     const interval = setInterval(
       loadUsers,
       1000
     );
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
+  /**
+   * Valor actualmente seleccionado.
+   */
   const currentValue =
     value !== undefined
-      ? String(value)
+      ? value
       : selectedId !== undefined
-      ? String(selectedId)
+      ? selectedId
       : '';
 
+  /**
+   * Manejar selección de usuario.
+   */
   const handleChange = (
     e: ChangeEvent<HTMLSelectElement>
   ) => {
     const newId = e.target.value;
 
+    /**
+     * Si no seleccionó ningún usuario.
+     */
+    if (!newId) {
+      onSelect?.(null);
+      onChange?.(null);
+      return;
+    }
+
+    /**
+     * User.id es string.
+     * El valor del <select> también es string.
+     */
     const found = users.find(
-      (user) =>
-        String(user.id) === String(newId)
+      (user) => user.id === newId
     );
 
-    if (onSelect) {
-      onSelect(found || null);
-    }
-
-    if (onChange) {
-      onChange(found || null);
-    }
+    /**
+     * Notificar al componente padre.
+     */
+    onSelect?.(found || null);
+    onChange?.(found || null);
   };
 
   return (
@@ -94,11 +164,10 @@ export default function RoleSelector({
 
         {users.map((user) => (
           <option
-            key={String(user.id)}
-            value={String(user.id)}
+            key={user.id}
+            value={user.id}
           >
-            {user.name} (@
-            {user.username})
+            {user.name} (@{user.username})
           </option>
         ))}
       </select>
