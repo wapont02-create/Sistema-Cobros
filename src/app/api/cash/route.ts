@@ -1,30 +1,23 @@
 import { NextResponse } from 'next/server';
 import { runQuery } from '../../../db/client';
 
-// ======================================================
-// GET - CONSULTAR CAJA ABIERTA
-// ======================================================
-
 export async function GET() {
   try {
     const result = await runQuery(async (db) => {
       return await db.sql(`
         SELECT
-          cr.id,
-          cr.user_id,
-          u.name AS opened_by,
-          u.role AS user_role,
-          cr.opening_date,
-          cr.closing_date,
-          cr.opening_usd,
-          cr.opening_ves,
-          cr.closing_usd,
-          cr.closing_ves,
-          cr.status
-        FROM cash_registers cr
-        LEFT JOIN users u ON u.id = cr.user_id
-        WHERE cr.status = 'open'
-        ORDER BY cr.id DESC
+          id,
+          user_id,
+          opening_date,
+          closing_date,
+          opening_usd,
+          opening_ves,
+          closing_usd,
+          closing_ves,
+          status
+        FROM cash_registers
+        WHERE LOWER(TRIM(status)) = 'open'
+        ORDER BY id DESC
         LIMIT 1;
       `);
     });
@@ -33,16 +26,22 @@ export async function GET() {
       ? result
       : result?.rows || [];
 
-    console.log('CAJA ABIERTA:', rows);
+    console.log('================================');
+    console.log('CONSULTA CAJA ABIERTA');
+    console.log('FILAS ENCONTRADAS:', rows.length);
+    console.log('CAJA:', rows);
+    console.log('================================');
 
     if (rows.length === 0) {
       return NextResponse.json({
+        success: true,
         isOpen: false,
         register: null,
       });
     }
 
     return NextResponse.json({
+      success: true,
       isOpen: true,
       register: rows[0],
     });
@@ -53,9 +52,11 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+        isOpen: false,
+        register: null,
         error:
           error?.message ||
-          'Error al consultar la caja',
+          'Error al consultar el estado de la caja',
       },
       { status: 500 }
     );
@@ -63,15 +64,14 @@ export async function GET() {
 }
 
 
-// ======================================================
-// POST - ABRIR / CERRAR CAJA
-// ======================================================
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    console.log('DATOS RECIBIDOS CAJA:', body);
+    console.log('================================');
+    console.log('OPERACIÓN DE CAJA');
+    console.log('DATOS RECIBIDOS:', body);
+    console.log('================================');
 
     const {
       action,
@@ -80,11 +80,8 @@ export async function POST(request: Request) {
       countedUSD,
       countedBs,
       userId,
-      username,
-      userRole,
       registerId,
     } = body;
-
 
     // ==================================================
     // ABRIR CAJA
@@ -95,119 +92,87 @@ export async function POST(request: Request) {
       const usd = Number(openingUSD) || 0;
       const ves = Number(openingBs) || 0;
 
-      // ------------------------------------------------
-      // Buscar usuario
-      // ------------------------------------------------
-
-      let cleanUserId =
-        userId !== undefined &&
+      const cleanUserId =
         userId !== null &&
+        userId !== undefined &&
         userId !== ''
           ? Number(userId)
           : null;
 
-      // Si no viene userId, intentar buscarlo por username/email
-      if (!cleanUserId && username) {
-
-        const userResult = await runQuery(async (db) => {
-          return await db.sql(
-            `
-            SELECT id
-            FROM users
-            WHERE email = ?
-               OR name = ?
-            LIMIT 1;
-            `,
-            [String(username), String(username)]
-          );
-        });
-
-        const userRows = Array.isArray(userResult)
-          ? userResult
-          : userResult?.rows || [];
-
-        if (userRows.length > 0) {
-          cleanUserId = Number(userRows[0].id);
-        }
-      }
-
-      // ------------------------------------------------
-      // Verificar usuario
-      // ------------------------------------------------
-
-      if (!cleanUserId) {
+      if (cleanUserId === null || !Number.isFinite(cleanUserId)) {
         return NextResponse.json(
           {
             success: false,
-            error:
-              'No se pudo identificar al usuario que está abriendo la caja.',
+            error: 'No se recibió un usuario válido para abrir la caja.',
           },
           { status: 400 }
         );
       }
 
-      // ------------------------------------------------
-      // Verificar que el usuario existe
-      // ------------------------------------------------
-
-      const userExists = await runQuery(async (db) => {
-        return await db.sql(
-          `
-          SELECT id, name, email, role
-          FROM users
-          WHERE id = ?
-          LIMIT 1;
-          `,
-          [cleanUserId]
-        );
-      });
-
-      const userRows = Array.isArray(userExists)
-        ? userExists
-        : userExists?.rows || [];
-
-      if (userRows.length === 0) {
+      if (usd < 0 || ves < 0) {
         return NextResponse.json(
           {
             success: false,
-            error: 'El usuario no existe en la base de datos.',
+            error: 'El fondo inicial no puede ser negativo.',
           },
           { status: 400 }
         );
       }
 
-      // ------------------------------------------------
+      if (usd === 0 && ves === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Debe indicar un fondo inicial en USD o Bs.',
+          },
+          { status: 400 }
+        );
+      }
+
+      // -----------------------------------------------
       // Verificar si ya existe una caja abierta
-      // ------------------------------------------------
+      // -----------------------------------------------
 
-      const existing = await runQuery(async (db) => {
+      const existingResult = await runQuery(async (db) => {
         return await db.sql(`
-          SELECT id
+          SELECT
+            id,
+            user_id,
+            opening_date,
+            opening_usd,
+            opening_ves,
+            status
           FROM cash_registers
-          WHERE status = 'open'
+          WHERE LOWER(TRIM(status)) = 'open'
           ORDER BY id DESC
           LIMIT 1;
         `);
       });
 
-      const existingRows = Array.isArray(existing)
-        ? existing
-        : existing?.rows || [];
+      const existingRows = Array.isArray(existingResult)
+        ? existingResult
+        : existingResult?.rows || [];
 
       if (existingRows.length > 0) {
         return NextResponse.json(
           {
             success: false,
             error: 'Ya existe una caja abierta.',
-            registerId: existingRows[0].id,
+            register: existingRows[0],
           },
           { status: 400 }
         );
       }
 
-      // ------------------------------------------------
-      // Crear caja
-      // ------------------------------------------------
+      // -----------------------------------------------
+      // INSERTAR NUEVA CAJA
+      // -----------------------------------------------
+
+      console.log('CREANDO CAJA:', {
+        userId: cleanUserId,
+        openingUSD: usd,
+        openingBs: ves,
+      });
 
       await runQuery(async (db) => {
         return await db.sql(
@@ -228,48 +193,52 @@ export async function POST(request: Request) {
         );
       });
 
-      // ------------------------------------------------
-      // Recuperar caja creada
-      // ------------------------------------------------
+      // -----------------------------------------------
+      // COMPROBAR QUE REALMENTE SE GUARDÓ
+      // -----------------------------------------------
 
-      const result = await runQuery(async (db) => {
+      const verifyResult = await runQuery(async (db) => {
         return await db.sql(`
           SELECT
-            cr.id,
-            cr.user_id,
-            u.name AS opened_by,
-            u.role AS user_role,
-            cr.opening_date,
-            cr.opening_usd,
-            cr.opening_ves,
-            cr.status
-          FROM cash_registers cr
-          LEFT JOIN users u ON u.id = cr.user_id
-          WHERE cr.status = 'open'
-          ORDER BY cr.id DESC
+            id,
+            user_id,
+            opening_date,
+            closing_date,
+            opening_usd,
+            opening_ves,
+            closing_usd,
+            closing_ves,
+            status
+          FROM cash_registers
+          WHERE LOWER(TRIM(status)) = 'open'
+          ORDER BY id DESC
           LIMIT 1;
         `);
       });
 
-      const rows = Array.isArray(result)
-        ? result
-        : result?.rows || [];
+      const verifyRows = Array.isArray(verifyResult)
+        ? verifyResult
+        : verifyResult?.rows || [];
 
-      console.log('CAJA CREADA:', rows);
+      console.log('================================');
+      console.log('CAJA DESPUÉS DEL INSERT');
+      console.log('FILAS:', verifyRows.length);
+      console.log('DATOS:', verifyRows);
+      console.log('================================');
 
-      if (rows.length === 0) {
+      if (verifyRows.length === 0) {
         throw new Error(
-          'La caja no fue encontrada después de crearla.'
+          'La caja fue enviada para apertura pero no aparece guardada en la base de datos.'
         );
       }
 
       return NextResponse.json({
         success: true,
-        message: 'Caja abierta exitosamente',
-        register: rows[0],
+        message: 'Caja abierta exitosamente.',
+        isOpen: true,
+        register: verifyRows[0],
       });
     }
-
 
     // ==================================================
     // CERRAR CAJA
@@ -277,17 +246,35 @@ export async function POST(request: Request) {
 
     if (action === 'close') {
 
-      if (!registerId) {
+      const cleanRegisterId = Number(registerId);
+
+      if (
+        !cleanRegisterId ||
+        !Number.isFinite(cleanRegisterId)
+      ) {
         return NextResponse.json(
           {
             success: false,
-            error: 'No se recibió el ID de la caja.',
+            error: 'No se recibió un ID de caja válido.',
           },
           { status: 400 }
         );
       }
 
-      await runQuery(async (db) => {
+      const usd = Number(countedUSD) || 0;
+      const ves = Number(countedBs) || 0;
+
+      if (usd < 0 || ves < 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'El conteo de cierre no puede ser negativo.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const updateResult = await runQuery(async (db) => {
         return await db.sql(
           `
           UPDATE cash_registers
@@ -297,22 +284,66 @@ export async function POST(request: Request) {
             closing_date = CURRENT_TIMESTAMP,
             status = 'closed'
           WHERE id = ?
-            AND status = 'open';
+            AND LOWER(TRIM(status)) = 'open';
           `,
           [
-            Number(countedUSD) || 0,
-            Number(countedBs) || 0,
-            Number(registerId),
+            usd,
+            ves,
+            cleanRegisterId,
           ]
         );
       });
 
+      console.log(
+        'RESULTADO CIERRE:',
+        updateResult
+      );
+
+      // -----------------------------------------------
+      // VERIFICAR CIERRE
+      // -----------------------------------------------
+
+      const verifyResult = await runQuery(async (db) => {
+        return await db.sql(
+          `
+          SELECT
+            id,
+            user_id,
+            opening_date,
+            closing_date,
+            opening_usd,
+            opening_ves,
+            closing_usd,
+            closing_ves,
+            status
+          FROM cash_registers
+          WHERE id = ?
+          LIMIT 1;
+          `,
+          [cleanRegisterId]
+        );
+      });
+
+      const verifyRows = Array.isArray(verifyResult)
+        ? verifyResult
+        : verifyResult?.rows || [];
+
+      if (verifyRows.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'No se encontró la caja después del cierre.',
+          },
+          { status: 404 }
+        );
+      }
+
       return NextResponse.json({
         success: true,
-        message: 'Caja cerrada exitosamente',
+        message: 'Caja cerrada exitosamente.',
+        register: verifyRows[0],
       });
     }
-
 
     // ==================================================
     // ACCIÓN NO VÁLIDA
@@ -321,24 +352,24 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Acción no válida',
+        error: 'Acción no válida.',
       },
       { status: 400 }
     );
 
   } catch (error: any) {
 
-    console.error(
-      'ERROR GESTIONANDO CAJA:',
-      error
-    );
+    console.error('================================');
+    console.error('ERROR EN /api/cash');
+    console.error(error);
+    console.error('================================');
 
     return NextResponse.json(
       {
         success: false,
         error:
           error?.message ||
-          'Error al procesar la operación de caja',
+          'Error al procesar la operación de caja.',
       },
       { status: 500 }
     );
