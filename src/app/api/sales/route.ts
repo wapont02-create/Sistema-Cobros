@@ -64,14 +64,7 @@ export async function POST(request: Request) {
       // ------------------------------------------------
 
       const registerResult: any = await db.sql(`
-        SELECT
-          id,
-          opening_usd,
-          opening_bs,
-          opened_by,
-          user_role,
-          status,
-          created_at
+        SELECT id
         FROM cash_registers
         WHERE status = 'open'
         ORDER BY id DESC
