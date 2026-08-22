@@ -29,27 +29,41 @@ const ALL_PERMISSIONS = [
     label: '✏️ Modificar / Crear Inventario',
   },
   {
-    key: 'view_receivable',
+    key: 'view_credits',
     label: '📋 Ver Cuentas por Cobrar',
   },
   {
+    key: 'view_payables',
+    label: '📑 Ver Cuentas por Pagar',
+  },
+  {
+    key: 'manage_payables',
+    label: '💰 Gestionar Cuentas por Pagar',
+  },
+  {
     key: 'view_reports',
-    label: '📊 Ver Reportes y Cierre Z',
+    label: '📊 Ver Reportes',
   },
   {
     key: 'manage_roles',
     label: '🛡️ Gestionar Roles y Personal',
   },
+  {
+    key: 'view_users',
+    label: '👥 Ver Usuarios',
+  },
+  {
+    key: 'view_dashboard',
+    label: '🏠 Ver Dashboard',
+  },
 ] as const;
 
 export default function RolesManagerModule() {
-  const [roles, setRoles] = useState<Role[]>(
-    []
-  );
+  const [roles, setRoles] =
+    useState<Role[]>([]);
 
-  const [users, setUsers] = useState<User[]>(
-    []
-  );
+  const [users, setUsers] =
+    useState<User[]>([]);
 
   const [newUserName, setNewUserName] =
     useState('');
@@ -62,6 +76,12 @@ export default function RolesManagerModule() {
   const [newUserRole, setNewUserRole] =
     useState('cajero');
 
+  /**
+   * ==========================================================
+   * CARGAR DATOS
+   * ==========================================================
+   */
+
   useEffect(() => {
     const loadedRoles = getRoles();
     const loadedUsers = getUsers();
@@ -69,17 +89,26 @@ export default function RolesManagerModule() {
     setRoles(loadedRoles);
     setUsers(loadedUsers);
 
-    if (
-      loadedRoles.length > 0 &&
-      !loadedRoles.some(
-        (role) => role.id === 'cajero'
-      )
-    ) {
+    if (loadedRoles.length > 0) {
+      const cajeroExists =
+        loadedRoles.some(
+          (role) =>
+            role.id === 'cajero'
+        );
+
       setNewUserRole(
-        loadedRoles[0].id
+        cajeroExists
+          ? 'cajero'
+          : loadedRoles[0].id
       );
     }
   }, []);
+
+  /**
+   * ==========================================================
+   * AGREGAR USUARIO
+   * ==========================================================
+   */
 
   const handleAddUser = (
     e: FormEvent<HTMLFormElement>
@@ -90,7 +119,9 @@ export default function RolesManagerModule() {
       newUserName.trim();
 
     const cleanUsername =
-      newUserUsername.trim();
+      newUserUsername
+        .trim()
+        .toLowerCase();
 
     if (
       !cleanName ||
@@ -99,6 +130,7 @@ export default function RolesManagerModule() {
       alert(
         'Completa todos los campos.'
       );
+
       return;
     }
 
@@ -106,24 +138,48 @@ export default function RolesManagerModule() {
       users.some(
         (user) =>
           user.username.toLowerCase() ===
-          cleanUsername.toLowerCase()
+          cleanUsername
       );
 
     if (usernameExists) {
       alert(
         'Ese nombre de usuario ya existe.'
       );
+
+      return;
+    }
+
+    const selectedRole =
+      roles.find(
+        (role) =>
+          role.id === newUserRole
+      );
+
+    if (!selectedRole) {
+      alert(
+        'Selecciona un rol válido.'
+      );
+
       return;
     }
 
     const newUser: User = {
-      id: Date.now(),
+      id: crypto.randomUUID
+        ? crypto.randomUUID()
+        : String(Date.now()),
+
       name: cleanName,
+
       username: cleanUsername,
-      role: newUserRole,
+
+      email: '',
+
+      roleId: selectedRole.id,
+
+      role: selectedRole.id,
     };
 
-    const updatedUsers: User[] = [
+    const updatedUsers = [
       ...users,
       newUser,
     ];
@@ -140,12 +196,19 @@ export default function RolesManagerModule() {
     );
   };
 
+  /**
+   * ==========================================================
+   * ELIMINAR USUARIO
+   * ==========================================================
+   */
+
   const handleDeleteUser = (
-    id: number
+    id: string
   ) => {
     const userToDelete =
       users.find(
-        (user) => user.id === id
+        (user) =>
+          user.id === id
       );
 
     if (!userToDelete) {
@@ -153,18 +216,20 @@ export default function RolesManagerModule() {
     }
 
     if (
-      userToDelete.username ===
+      userToDelete.username.toLowerCase() ===
       'admin'
     ) {
       alert(
         'El usuario administrador principal no puede eliminarse.'
       );
+
       return;
     }
 
-    const confirmed = window.confirm(
-      `¿Estás seguro de eliminar a ${userToDelete.name}?`
-    );
+    const confirmed =
+      window.confirm(
+        `¿Estás seguro de eliminar a ${userToDelete.name}?`
+      );
 
     if (!confirmed) {
       return;
@@ -172,13 +237,20 @@ export default function RolesManagerModule() {
 
     const updatedUsers =
       users.filter(
-        (user) => user.id !== id
+        (user) =>
+          user.id !== id
       );
 
     setUsers(updatedUsers);
 
     saveUsers(updatedUsers);
   };
+
+  /**
+   * ==========================================================
+   * INPUT HANDLERS
+   * ==========================================================
+   */
 
   const handleNameChange = (
     e: ChangeEvent<HTMLInputElement>
@@ -204,6 +276,12 @@ export default function RolesManagerModule() {
     );
   };
 
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
+
   return (
     <div className="space-y-6">
 
@@ -225,13 +303,13 @@ export default function RolesManagerModule() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {roles.map(
-          (role: Role) => (
+          (role) => (
             <div
               key={role.id}
               className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-3"
             >
 
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
 
                 <h3 className="font-bold text-white text-base">
                   {role.name}
@@ -244,7 +322,8 @@ export default function RolesManagerModule() {
               </div>
 
               <p className="text-xs text-slate-400">
-                {role.description}
+                {role.description ||
+                  'Sin descripción.'}
               </p>
 
               <div className="border-t border-slate-800 pt-2 space-y-1">
@@ -362,7 +441,7 @@ export default function RolesManagerModule() {
             >
 
               {roles.map(
-                (role: Role) => (
+                (role) => (
                   <option
                     key={role.id}
                     value={role.id}
@@ -433,7 +512,7 @@ export default function RolesManagerModule() {
             <tbody className="divide-y divide-slate-800">
 
               {users.map(
-                (user: User) => (
+                (user) => (
                   <tr
                     key={user.id}
                     className="hover:bg-slate-800/40"
