@@ -1,40 +1,29 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import {
+  useState,
+  useEffect,
+  type FormEvent,
+  type ChangeEvent,
+} from 'react';
+
 import {
   getRoles,
   getUsers,
   saveUsers,
+  type Role,
+  type User,
+  type Permission,
 } from '../utils/rolesManager';
 
-/* =========================================================
-   TIPOS
-========================================================= */
+// ==========================================
+// PERMISOS DISPONIBLES
+// ==========================================
 
-interface Permission {
-  key: string;
+const ALL_PERMISSIONS: {
+  key: Permission;
   label: string;
-}
-
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  permissions: string[];
-}
-
-interface User {
-  id: number | string;
-  name: string;
-  username: string;
-  role: string;
-}
-
-/* =========================================================
-   PERMISOS DISPONIBLES
-========================================================= */
-
-const ALL_PERMISSIONS: Permission[] = [
+}[] = [
   {
     key: 'view_pos',
     label: '🛒 Acceso a Caja POS',
@@ -61,55 +50,49 @@ const ALL_PERMISSIONS: Permission[] = [
   },
 ];
 
-/* =========================================================
-   COMPONENTE
-========================================================= */
+// ==========================================
+// COMPONENTE
+// ==========================================
 
 export default function RolesManagerModule() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
-  const [newUserName, setNewUserName] = useState<string>('');
+  const [newUserName, setNewUserName] =
+    useState<string>('');
+
   const [newUserUsername, setNewUserUsername] =
     useState<string>('');
+
   const [newUserRole, setNewUserRole] =
     useState<string>('cajero');
 
-  const [loading, setLoading] = useState<boolean>(true);
-
-  /* =======================================================
-     CARGAR ROLES Y USUARIOS
-  ======================================================= */
+  // ========================================
+  // CARGAR DATOS
+  // ========================================
 
   useEffect(() => {
-    try {
-      const loadedRoles = getRoles();
-      const loadedUsers = getUsers();
+    const loadedRoles = getRoles();
+    const loadedUsers = getUsers();
 
-      setRoles(
-        Array.isArray(loadedRoles)
-          ? (loadedRoles as Role[])
-          : []
+    setRoles(loadedRoles);
+    setUsers(loadedUsers);
+
+    // Si existe el rol cajero lo seleccionamos.
+    if (loadedRoles.length > 0) {
+      const cajeroExists = loadedRoles.some(
+        (role: Role) => role.id === 'cajero'
       );
 
-      setUsers(
-        Array.isArray(loadedUsers)
-          ? (loadedUsers as User[])
-          : []
-      );
-    } catch (error) {
-      console.error(
-        'Error al cargar roles y usuarios:',
-        error
-      );
-    } finally {
-      setLoading(false);
+      if (!cajeroExists) {
+        setNewUserRole(loadedRoles[0].id);
+      }
     }
   }, []);
 
-  /* =======================================================
-     AGREGAR USUARIO
-  ======================================================= */
+  // ========================================
+  // AGREGAR USUARIO
+  // ========================================
 
   const handleAddUser = (
     e: FormEvent<HTMLFormElement>
@@ -121,15 +104,14 @@ export default function RolesManagerModule() {
 
     if (!name || !username) {
       alert(
-        'Por favor, completa el nombre y el usuario.'
+        'Por favor completa el nombre y el usuario.'
       );
       return;
     }
 
-    /* Evitar usuarios duplicados */
-
+    // Verificar usuario duplicado
     const usernameExists = users.some(
-      (user) =>
+      (user: User) =>
         user.username.toLowerCase() ===
         username.toLowerCase()
     );
@@ -141,7 +123,22 @@ export default function RolesManagerModule() {
       return;
     }
 
-    /* Crear nuevo usuario */
+    // Verificar que el rol exista
+    const roleExists = roles.some(
+      (role: Role) =>
+        role.id === newUserRole
+    );
+
+    if (!roleExists) {
+      alert(
+        'El rol seleccionado no existe.'
+      );
+      return;
+    }
+
+    // ======================================
+    // NUEVO USUARIO
+    // ======================================
 
     const newUser: User = {
       id: Date.now(),
@@ -156,106 +153,107 @@ export default function RolesManagerModule() {
     ];
 
     setUsers(updatedUsers);
+
     saveUsers(updatedUsers);
 
-    /* Limpiar formulario */
-
+    // Limpiar formulario
     setNewUserName('');
     setNewUserUsername('');
-
-    if (roles.length > 0) {
-      setNewUserRole(roles[0].id);
-    }
 
     alert(
       '¡Personal registrado exitosamente!'
     );
   };
 
-  /* =======================================================
-     ELIMINAR USUARIO
-  ======================================================= */
+  // ========================================
+  // ELIMINAR USUARIO
+  // ========================================
 
   const handleDeleteUser = (
-    id: number | string
+    id: number
   ): void => {
     const user = users.find(
-      (u) => u.id === id
+      (u: User) => u.id === id
     );
 
     if (!user) {
       return;
     }
 
-    /*
-     * Evitar eliminar al administrador principal
-     */
-
-    if (
-      user.username === 'admin' ||
-      user.id === 1
-    ) {
-      alert(
-        'El administrador principal no puede ser eliminado.'
-      );
-      return;
-    }
-
     const confirmed = window.confirm(
-      `¿Estás seguro de eliminar a ${user.name}?`
+      `¿Estás seguro de eliminar al usuario "${user.name}"?`
     );
 
     if (!confirmed) {
       return;
     }
 
-    const updatedUsers = users.filter(
-      (u) => u.id !== id
-    );
+    const updatedUsers: User[] =
+      users.filter(
+        (u: User) => u.id !== id
+      );
 
     setUsers(updatedUsers);
+
     saveUsers(updatedUsers);
   };
 
-  /* =======================================================
-     CARGANDO
-  ======================================================= */
+  // ========================================
+  // CAMBIAR ROL
+  // ========================================
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-slate-400">
-          Cargando configuración...
-        </div>
-      </div>
-    );
-  }
+  const handleRoleChange = (
+    e: ChangeEvent<HTMLSelectElement>
+  ): void => {
+    setNewUserRole(e.target.value);
+  };
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+  // ========================================
+  // CAMBIAR NOMBRE
+  // ========================================
+
+  const handleNameChange = (
+    e: ChangeEvent<HTMLInputElement>
+  ): void => {
+    setNewUserName(e.target.value);
+  };
+
+  // ========================================
+  // CAMBIAR USERNAME
+  // ========================================
+
+  const handleUsernameChange = (
+    e: ChangeEvent<HTMLInputElement>
+  ): void => {
+    setNewUserUsername(e.target.value);
+  };
+
+  // ========================================
+  // RENDER
+  // ========================================
 
   return (
     <div className="space-y-6">
 
-      {/* ===================================================
+      {/* ====================================
           ENCABEZADO
-      =================================================== */}
+      ==================================== */}
 
       <div>
-        <h2 className="text-xl font-bold mb-1 text-white">
-          Módulo de Configuración de Roles y Personal
+        <h2 className="text-xl font-bold mb-1">
+          Módulo de Configuración de Roles y
+          Personal
         </h2>
 
         <p className="text-sm text-slate-400">
-          Define los niveles de acceso corporativo y
-          administra el personal autorizado.
+          Define los niveles de acceso corporativo
+          y administra el personal autorizado.
         </p>
       </div>
 
-      {/* ===================================================
+      {/* ====================================
           ROLES Y PERMISOS
-      =================================================== */}
+      ==================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -266,15 +264,15 @@ export default function RolesManagerModule() {
             </p>
           </div>
         ) : (
-          roles.map((role) => (
+          roles.map((role: Role) => (
             <div
               key={role.id}
               className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-3"
             >
 
-              {/* CABECERA DEL ROL */}
+              {/* Nombre del rol */}
 
-              <div className="flex justify-between items-center gap-3">
+              <div className="flex justify-between items-center">
 
                 <h3 className="font-bold text-white text-base">
                   {role.name}
@@ -286,13 +284,13 @@ export default function RolesManagerModule() {
 
               </div>
 
-              {/* DESCRIPCIÓN */}
+              {/* Descripción */}
 
               <p className="text-xs text-slate-400">
                 {role.description}
               </p>
 
-              {/* PERMISOS */}
+              {/* Permisos */}
 
               <div className="border-t border-slate-800 pt-2 space-y-1">
 
@@ -300,38 +298,32 @@ export default function RolesManagerModule() {
                   Permisos asignados:
                 </p>
 
-                {role.permissions &&
-                role.permissions.length > 0 ? (
-                  <ul className="text-xs text-slate-400 space-y-1">
+                <ul className="text-xs text-slate-400 space-y-1">
 
-                    {role.permissions.map(
-                      (permKey: string) => {
-                        const permission =
-                          ALL_PERMISSIONS.find(
-                            (permissionItem) =>
-                              permissionItem.key ===
-                              permKey
-                          );
+                  {role.permissions.map(
+                    (permission: Permission) => {
 
-                        return (
-                          <li
-                            key={permKey}
-                          >
-                            •{' '}
-                            {permission
-                              ? permission.label
-                              : permKey}
-                          </li>
+                      const permissionObject =
+                        ALL_PERMISSIONS.find(
+                          (permissionItem) =>
+                            permissionItem.key ===
+                            permission
                         );
-                      }
-                    )}
 
-                  </ul>
-                ) : (
-                  <p className="text-xs text-slate-600">
-                    Sin permisos asignados.
-                  </p>
-                )}
+                      return (
+                        <li
+                          key={permission}
+                        >
+                          •{' '}
+                          {permissionObject
+                            ? permissionObject.label
+                            : permission}
+                        </li>
+                      );
+                    }
+                  )}
+
+                </ul>
 
               </div>
 
@@ -341,13 +333,13 @@ export default function RolesManagerModule() {
 
       </div>
 
-      {/* ===================================================
-          REGISTRAR NUEVO PERSONAL
-      =================================================== */}
+      {/* ====================================
+          REGISTRAR PERSONAL
+      ==================================== */}
 
       <div className="border-t border-slate-800 pt-6 mt-6">
 
-        <h3 className="text-lg font-bold mb-3 text-white">
+        <h3 className="text-lg font-bold mb-3">
           Registrar Nuevo Empleado / Usuario
         </h3>
 
@@ -356,7 +348,7 @@ export default function RolesManagerModule() {
           className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-950/40 p-4 rounded-xl border border-slate-800"
         >
 
-          {/* NOMBRE */}
+          {/* Nombre */}
 
           <div>
 
@@ -368,18 +360,14 @@ export default function RolesManagerModule() {
               type="text"
               placeholder="Ej. María Gómez"
               value={newUserName}
-              onChange={(
-                e: React.ChangeEvent<HTMLInputElement>
-              ) =>
-                setNewUserName(e.target.value)
-              }
+              onChange={handleNameChange}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
               required
             />
 
           </div>
 
-          {/* USUARIO */}
+          {/* Usuario */}
 
           <div>
 
@@ -391,18 +379,14 @@ export default function RolesManagerModule() {
               type="text"
               placeholder="Ej. mgomez"
               value={newUserUsername}
-              onChange={(
-                e: React.ChangeEvent<HTMLInputElement>
-              ) =>
-                setNewUserUsername(e.target.value)
-              }
+              onChange={handleUsernameChange}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
               required
             />
 
           </div>
 
-          {/* ROL */}
+          {/* Rol */}
 
           <div>
 
@@ -412,17 +396,11 @@ export default function RolesManagerModule() {
 
             <select
               value={newUserRole}
-              onChange={(
-                e: React.ChangeEvent<HTMLSelectElement>
-              ) =>
-                setNewUserRole(
-                  e.target.value
-                )
-              }
+              onChange={handleRoleChange}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
             >
 
-              {roles.map((role) => (
+              {roles.map((role: Role) => (
                 <option
                   key={role.id}
                   value={role.id}
@@ -435,7 +413,7 @@ export default function RolesManagerModule() {
 
           </div>
 
-          {/* BOTÓN */}
+          {/* Botón */}
 
           <div className="flex items-end">
 
@@ -452,13 +430,13 @@ export default function RolesManagerModule() {
 
       </div>
 
-      {/* ===================================================
-          LISTA DE PERSONAL
-      =================================================== */}
+      {/* ====================================
+          PERSONAL REGISTRADO
+      ==================================== */}
 
       <div className="border-t border-slate-800 pt-6">
 
-        <h3 className="text-lg font-bold mb-3 text-white">
+        <h3 className="text-lg font-bold mb-3">
           Personal Autorizado en el Sistema
         </h3>
 
@@ -498,7 +476,7 @@ export default function RolesManagerModule() {
 
                   <td
                     colSpan={4}
-                    className="p-8 text-center text-slate-500"
+                    className="p-6 text-center text-slate-500"
                   >
                     No hay personal registrado.
                   </td>
@@ -507,26 +485,26 @@ export default function RolesManagerModule() {
 
               ) : (
 
-                users.map((user) => (
+                users.map((user: User) => (
 
                   <tr
                     key={user.id}
                     className="hover:bg-slate-800/40"
                   >
 
-                    {/* NOMBRE */}
+                    {/* Nombre */}
 
                     <td className="p-3 font-medium text-white">
                       {user.name}
                     </td>
 
-                    {/* USUARIO */}
+                    {/* Usuario */}
 
                     <td className="p-3 font-mono text-cyan-400">
                       @{user.username}
                     </td>
 
-                    {/* ROL */}
+                    {/* Rol */}
 
                     <td className="p-3 uppercase text-xs font-semibold">
 
@@ -536,32 +514,21 @@ export default function RolesManagerModule() {
 
                     </td>
 
-                    {/* ACCIONES */}
+                    {/* Acciones */}
 
                     <td className="p-3 text-right">
 
-                      {user.username === 'admin' ||
-                      user.id === 1 ? (
-
-                        <span className="text-xs text-slate-600">
-                          Administrador principal
-                        </span>
-
-                      ) : (
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDeleteUser(
-                              user.id
-                            )
-                          }
-                          className="text-red-400 hover:text-red-300 text-xs font-semibold px-2.5 py-1 rounded bg-red-500/10 border border-red-500/20"
-                        >
-                          Eliminar
-                        </button>
-
-                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeleteUser(
+                            user.id
+                          )
+                        }
+                        className="text-red-400 hover:text-red-300 text-xs font-semibold px-2.5 py-1 rounded bg-red-500/10 border border-red-500/20"
+                      >
+                        Eliminar
+                      </button>
 
                     </td>
 
