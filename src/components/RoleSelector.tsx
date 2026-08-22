@@ -1,29 +1,15 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent } from 'react';
+import {
+  useEffect,
+  useState,
+  ChangeEvent,
+} from 'react';
 
-const USERS_LIST = [
-  {
-    id: 1,
-    name: 'Ana Administradora',
-    username: 'admin',
-    role: 'admin',
-  },
-  {
-    id: 2,
-    name: 'Carlos Cajero',
-    username: 'cajero1',
-    role: 'cajero',
-  },
-  {
-    id: 3,
-    name: 'Luis Almacenista',
-    username: 'almacen1',
-    role: 'almacenista',
-  },
-];
-
-type User = (typeof USERS_LIST)[number];
+import {
+  User,
+  getUsers,
+} from '../utils/rolesManager';
 
 interface RoleSelectorProps {
   onUserChange?: (user: User) => void;
@@ -32,78 +18,115 @@ interface RoleSelectorProps {
 export default function RoleSelector({
   onUserChange,
 }: RoleSelectorProps) {
-  const [currentUser, setCurrentUser] = useState<User>(USERS_LIST[0]);
+  const [currentUser, setCurrentUser] =
+    useState<User | null>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('pos_current_user');
+    try {
+      const users = getUsers();
 
-    if (savedUser) {
-      try {
-        const parsed: User = JSON.parse(savedUser);
+      const savedUser = localStorage.getItem(
+        'pos_current_user'
+      );
 
-        setCurrentUser(parsed);
+      if (savedUser) {
+        const parsedUser = JSON.parse(
+          savedUser
+        ) as User;
 
-        if (onUserChange) {
-          onUserChange(parsed);
-        }
-      } catch (error) {
-        console.error(
-          'Error al recuperar el usuario guardado:',
-          error
+        const validUser = users.find(
+          (user) =>
+            user.id === parsedUser.id
         );
+
+        if (validUser) {
+          setCurrentUser(validUser);
+
+          if (onUserChange) {
+            onUserChange(validUser);
+          }
+
+          return;
+        }
+      }
+
+      const defaultUser =
+        users.find(
+          (user) => user.role === 'admin'
+        ) ||
+        users[0];
+
+      if (defaultUser) {
+        setCurrentUser(defaultUser);
 
         localStorage.setItem(
           'pos_current_user',
-          JSON.stringify(USERS_LIST[0])
+          JSON.stringify(defaultUser)
         );
 
         if (onUserChange) {
-          onUserChange(USERS_LIST[0]);
+          onUserChange(defaultUser);
         }
       }
-    } else {
-      localStorage.setItem(
-        'pos_current_user',
-        JSON.stringify(USERS_LIST[0])
+    } catch (error) {
+      console.error(
+        'Error cargando usuario actual:',
+        error
       );
-
-      if (onUserChange) {
-        onUserChange(USERS_LIST[0]);
-      }
     }
   }, [onUserChange]);
 
-  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = Number(e.target.value);
-
-    const found = USERS_LIST.find(
-      (u) => u.id === selectedId
+  const handleChange = (
+    e: ChangeEvent<HTMLSelectElement>
+  ) => {
+    const selectedId = Number(
+      e.target.value
     );
 
-    if (found) {
-      setCurrentUser(found);
+    const users = getUsers();
 
-      localStorage.setItem(
-        'pos_current_user',
-        JSON.stringify(found)
-      );
+    const found = users.find(
+      (user) =>
+        user.id === selectedId
+    );
 
-      if (onUserChange) {
-        onUserChange(found);
-      }
-
-      // Recarga para aplicar los permisos inmediatamente
-      window.location.reload();
+    if (!found) {
+      return;
     }
+
+    setCurrentUser(found);
+
+    localStorage.setItem(
+      'pos_current_user',
+      JSON.stringify(found)
+    );
+
+    if (onUserChange) {
+      onUserChange(found);
+    }
+
+    window.location.reload();
   };
+
+  if (!currentUser) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-white">
+        <span className="text-sm text-slate-400">
+          Cargando usuario...
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-white shadow-lg">
-      
+
       <div className="flex items-center gap-3">
-        
+
         <div className="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-lg border border-cyan-500/30">
-          {currentUser.name.charAt(0)}
+          {currentUser.name
+            .charAt(0)
+            .toUpperCase()}
         </div>
 
         <div>
@@ -119,7 +142,7 @@ export default function RoleSelector({
       </div>
 
       <div className="flex items-center gap-2">
-        
+
         <label className="text-xs text-slate-400 font-medium hidden sm:inline">
           Cambiar Perfil:
         </label>
@@ -129,14 +152,18 @@ export default function RoleSelector({
           onChange={handleChange}
           className="bg-slate-950 border border-slate-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
         >
-          {USERS_LIST.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name} ({u.role})
+          {getUsers().map((user) => (
+            <option
+              key={user.id}
+              value={user.id}
+            >
+              {user.name} ({user.role})
             </option>
           ))}
         </select>
 
       </div>
+
     </div>
   );
 }
