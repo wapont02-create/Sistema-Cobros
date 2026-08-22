@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { runQuery } from '../../../db/client';
+import { runQuery } from '../../../../db/client';
 
 export async function POST(request: Request) {
   try {
