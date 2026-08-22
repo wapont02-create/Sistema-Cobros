@@ -669,12 +669,12 @@ export default function DashboardPOS() {
     };
 
     const requiredPermissions = tabPermissionMap[activeTab] || [];
-    const hasAccess = requiredPermissions.length === 0 || requiredPermissions.some(p => userPermissions.includes(p));
+    const hasAccess = requiredPermissions.length === 0 || requiredPermissions.some(p => (userPermissions as string[]).includes(p));
 
     if (!hasAccess) {
       const availableTab = Object.keys(tabPermissionMap).find(tab => {
         const perms = tabPermissionMap[tab];
-        return perms.some(p => userPermissions.includes(p));
+        return perms.some(p => (userPermissions as string[]).includes(p));
       }) as 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles' | undefined;
 
       if (availableTab && availableTab !== activeTab) {
