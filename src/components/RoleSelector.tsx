@@ -1,9 +1,9 @@
 'use client';
 
 import {
+  ChangeEvent,
   useEffect,
   useState,
-  ChangeEvent,
 } from 'react';
 
 import {
@@ -12,158 +12,96 @@ import {
 } from '../utils/rolesManager';
 
 interface RoleSelectorProps {
-  onUserChange?: (user: User) => void;
+  selectedId?: string | number;
+  onSelect?: (user: User | null) => void;
+  value?: string | number;
+  onChange?: (user: User | null) => void;
+  label?: string;
+  disabled?: boolean;
+  className?: string;
 }
 
 export default function RoleSelector({
-  onUserChange,
+  selectedId,
+  onSelect,
+  value,
+  onChange,
+  label = 'Usuario',
+  disabled = false,
+  className = '',
 }: RoleSelectorProps) {
-  const [currentUser, setCurrentUser] =
-    useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    try {
-      const users = getUsers();
+    const loadUsers = () => {
+      const loadedUsers = getUsers();
+      setUsers(loadedUsers);
+    };
 
-      const savedUser = localStorage.getItem(
-        'pos_current_user'
-      );
+    loadUsers();
 
-      if (savedUser) {
-        const parsedUser = JSON.parse(
-          savedUser
-        ) as User;
+    const interval = setInterval(
+      loadUsers,
+      1000
+    );
 
-        const validUser = users.find(
-          (user) =>
-            user.id === parsedUser.id
-        );
+    return () => clearInterval(interval);
+  }, []);
 
-        if (validUser) {
-          setCurrentUser(validUser);
-
-          if (onUserChange) {
-            onUserChange(validUser);
-          }
-
-          return;
-        }
-      }
-
-      const defaultUser =
-        users.find(
-          (user) => user.role === 'admin'
-        ) ||
-        users[0];
-
-      if (defaultUser) {
-        setCurrentUser(defaultUser);
-
-        localStorage.setItem(
-          'pos_current_user',
-          JSON.stringify(defaultUser)
-        );
-
-        if (onUserChange) {
-          onUserChange(defaultUser);
-        }
-      }
-    } catch (error) {
-      console.error(
-        'Error cargando usuario actual:',
-        error
-      );
-    }
-  }, [onUserChange]);
+  const currentValue =
+    value !== undefined
+      ? String(value)
+      : selectedId !== undefined
+      ? String(selectedId)
+      : '';
 
   const handleChange = (
     e: ChangeEvent<HTMLSelectElement>
   ) => {
-    const selectedId = Number(
-      e.target.value
-    );
-
-    const users = getUsers();
+    const newId = e.target.value;
 
     const found = users.find(
       (user) =>
-        user.id === selectedId
+        String(user.id) === String(newId)
     );
 
-    if (!found) {
-      return;
+    if (onSelect) {
+      onSelect(found || null);
     }
 
-    setCurrentUser(found);
-
-    localStorage.setItem(
-      'pos_current_user',
-      JSON.stringify(found)
-    );
-
-    if (onUserChange) {
-      onUserChange(found);
+    if (onChange) {
+      onChange(found || null);
     }
-
-    window.location.reload();
   };
 
-  if (!currentUser) {
-    return (
-      <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-white">
-        <span className="text-sm text-slate-400">
-          Cargando usuario...
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-white shadow-lg">
+    <div
+      className={`space-y-1 ${className}`}
+    >
+      <label className="block text-xs font-bold text-slate-600">
+        {label}
+      </label>
 
-      <div className="flex items-center gap-3">
+      <select
+        value={currentValue}
+        onChange={handleChange}
+        disabled={disabled}
+        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+      >
+        <option value="">
+          Seleccionar usuario
+        </option>
 
-        <div className="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-lg border border-cyan-500/30">
-          {currentUser.name
-            .charAt(0)
-            .toUpperCase()}
-        </div>
-
-        <div>
-          <p className="text-sm font-semibold">
-            {currentUser.name}
-          </p>
-
-          <span className="text-xs uppercase px-2 py-0.5 rounded-full bg-slate-800 text-cyan-400 border border-slate-700 font-mono">
-            Rol: {currentUser.role}
-          </span>
-        </div>
-
-      </div>
-
-      <div className="flex items-center gap-2">
-
-        <label className="text-xs text-slate-400 font-medium hidden sm:inline">
-          Cambiar Perfil:
-        </label>
-
-        <select
-          value={currentUser.id}
-          onChange={handleChange}
-          className="bg-slate-950 border border-slate-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-        >
-          {getUsers().map((user) => (
-            <option
-              key={user.id}
-              value={user.id}
-            >
-              {user.name} ({user.role})
-            </option>
-          ))}
-        </select>
-
-      </div>
-
+        {users.map((user) => (
+          <option
+            key={String(user.id)}
+            value={String(user.id)}
+          >
+            {user.name} (@
+            {user.username})
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
