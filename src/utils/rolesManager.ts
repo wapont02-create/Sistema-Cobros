@@ -1,4 +1,8 @@
+// Definición estricta de todos los permisos disponibles en el sistema POS y Dashboard
 export type Permission =
+  | 'view_pos'
+  | 'view_inventory'
+  | 'view_reports'
   | 'view_payables'
   | 'manage_roles'
   | 'view_users'
@@ -6,26 +10,24 @@ export type Permission =
   | 'manage_payables'
   | 'view_dashboard';
 
+// Interfaz para la estructura de un Rol
 export interface Role {
   id: string;
   name: string;
+  description?: string;
   permissions: Permission[];
 }
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  roleId?: string;
-  role?: string; // Incluido para garantizar compatibilidad con el dashboard
-}
-
-// Datos de ejemplo para los roles del sistema
-const mockRoles: Role[] = [
+// Configuración predeterminada de roles del sistema
+export const DEFAULT_ROLES: Role[] = [
   {
     id: 'admin',
     name: 'Administrador',
+    description: 'Acceso total a todas las módulos, configuración y gestión del sistema.',
     permissions: [
+      'view_pos',
+      'view_inventory',
+      'view_reports',
       'view_payables',
       'manage_roles',
       'view_users',
@@ -36,45 +38,41 @@ const mockRoles: Role[] = [
   },
   {
     id: 'viewer',
-    name: 'Visualizador',
+    name: 'Visualizador / Auditor',
+    description: 'Acceso de consulta a operaciones, inventario, reportes y finanzas básicas.',
     permissions: [
+      'view_pos',
+      'view_inventory',
+      'view_reports',
       'view_payables',
+      'view_credits',
+      'view_dashboard',
+    ],
+  },
+  {
+    id: 'cashier',
+    name: 'Cajero',
+    description: 'Acceso operativo al punto de venta, inventario de consulta y control de créditos.',
+    permissions: [
+      'view_pos',
+      'view_inventory',
       'view_credits',
       'view_dashboard',
     ],
   },
 ];
 
-// Datos de ejemplo para los usuarios
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Administrador General',
-    email: 'admin@example.com',
-    roleId: 'admin',
-    role: 'admin',
-  },
-];
-
 /**
- * Retorna la lista de roles disponibles en el sistema con sus permisos.
+ * Verifica si un conjunto de permisos de usuario incluye un permiso específico.
  */
-export function getRoles(): Role[] {
-  return mockRoles;
+export function hasPermission(userPermissions: string[], permission: Permission): boolean {
+  return userPermissions.includes(permission);
 }
 
 /**
- * Retorna la lista de usuarios del sistema.
+ * Obtiene los permisos predeterminados de un rol por su ID.
  */
-export function getUsers(): User[] {
-  return mockUsers;
-}
-
-/**
- * Valida si un rol específico cuenta con un permiso determinado.
- */
-export function hasPermission(roleId: string, permission: Permission): boolean {
-  const role = mockRoles.find((r) => r.id === roleId);
-  if (!role) return false;
-  return role.permissions.includes(permission);
+export function getPermissionsByRoleId(roleId: string): Permission[] {
+  const role = DEFAULT_ROLES.find((r) => r.id === roleId);
+  return role ? role.permissions : [];
 }
