@@ -1,175 +1,78 @@
 export type Permission =
-  | 'view_pos'
-  | 'view_inventory'
-  | 'edit_inventory'
-  | 'view_receivable'
-  | 'view_reports'
-  | 'manage_roles';
+  | 'view_payables'
+  | 'manage_roles'
+  | 'view_users'
+  | 'view_credits'
+  | 'manage_payables'
+  | 'view_dashboard';
 
 export interface Role {
   id: string;
   name: string;
-  description: string;
   permissions: Permission[];
 }
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
-  username: string;
-  role: string;
+  email: string;
+  roleId: string;
 }
 
-export const DEFAULT_ROLES: Role[] = [
+// Datos de ejemplo para los roles del sistema
+const mockRoles: Role[] = [
   {
     id: 'admin',
     name: 'Administrador',
-    description: 'Acceso total al sistema',
     permissions: [
-      'view_pos',
-      'view_inventory',
-      'edit_inventory',
-      'view_reports',
-      'view_receivable',
+      'view_payables',
       'manage_roles',
+      'view_users',
+      'view_credits',
+      'manage_payables',
+      'view_dashboard',
     ],
   },
   {
-    id: 'cajero',
-    name: 'Cajero / Operador',
-    description:
-      'Acceso exclusivo al terminal de caja y cobros',
-    permissions: ['view_pos'],
-  },
-  {
-    id: 'almacenista',
-    name: 'Almacenista',
-    description: 'Gestión de inventario y stock',
+    id: 'viewer',
+    name: 'Visualizador',
     permissions: [
-      'view_inventory',
-      'edit_inventory',
+      'view_payables',
+      'view_credits',
+      'view_dashboard',
     ],
   },
 ];
 
-export const DEFAULT_USERS: User[] = [
+// Datos de ejemplo para los usuarios
+const mockUsers: User[] = [
   {
-    id: 1,
-    name: 'Ana Administradora',
-    username: 'admin',
-    role: 'admin',
-  },
-  {
-    id: 2,
-    name: 'Carlos Cajero',
-    username: 'cajero1',
-    role: 'cajero',
-  },
-  {
-    id: 3,
-    name: 'Luis Almacenista',
-    username: 'almacen1',
-    role: 'almacenista',
+    id: '1',
+    name: 'Administrador General',
+    email: 'admin@example.com',
+    roleId: 'admin',
   },
 ];
 
+/**
+ * Retorna la lista de roles disponibles en el sistema con sus permisos.
+ */
 export function getRoles(): Role[] {
-  if (typeof window === 'undefined') {
-    return DEFAULT_ROLES;
-  }
-
-  try {
-    const saved = localStorage.getItem(
-      'pos_custom_roles'
-    );
-
-    if (!saved) {
-      return DEFAULT_ROLES;
-    }
-
-    const parsed = JSON.parse(saved);
-
-    if (!Array.isArray(parsed)) {
-      return DEFAULT_ROLES;
-    }
-
-    return parsed as Role[];
-  } catch (error) {
-    console.error('Error cargando roles:', error);
-    return DEFAULT_ROLES;
-  }
+  return mockRoles;
 }
 
-export function saveRoles(roles: Role[]): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(
-      'pos_custom_roles',
-      JSON.stringify(roles)
-    );
-  } catch (error) {
-    console.error('Error guardando roles:', error);
-  }
-}
-
+/**
+ * Retorna la lista de usuarios del sistema.
+ */
 export function getUsers(): User[] {
-  if (typeof window === 'undefined') {
-    return DEFAULT_USERS;
-  }
-
-  try {
-    const saved = localStorage.getItem(
-      'pos_custom_users'
-    );
-
-    if (!saved) {
-      return DEFAULT_USERS;
-    }
-
-    const parsed = JSON.parse(saved);
-
-    if (!Array.isArray(parsed)) {
-      return DEFAULT_USERS;
-    }
-
-    return parsed as User[];
-  } catch (error) {
-    console.error('Error cargando usuarios:', error);
-    return DEFAULT_USERS;
-  }
+  return mockUsers;
 }
 
-export function saveUsers(users: User[]): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(
-      'pos_custom_users',
-      JSON.stringify(users)
-    );
-  } catch (error) {
-    console.error('Error guardando usuarios:', error);
-  }
-}
-
-export function hasPermission(
-  roleId: string,
-  permission: Permission
-): boolean {
-  const roles = getRoles();
-
-  const role = roles.find(
-    (r) => r.id === roleId
-  );
-
-  if (!role) {
-    return false;
-  }
-
+/**
+ * Valida si un rol específico cuenta con un permiso determinado.
+ */
+export function hasPermission(roleId: string, permission: Permission): boolean {
+  const role = mockRoles.find((r) => r.id === roleId);
+  if (!role) return false;
   return role.permissions.includes(permission);
 }
