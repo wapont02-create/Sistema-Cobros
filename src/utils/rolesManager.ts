@@ -16,7 +16,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  roleId: string;
+  roleId?: string;
+  role?: string; // Incluido para garantizar compatibilidad con el dashboard
 }
 
 // Datos de ejemplo para los roles del sistema
@@ -51,6 +52,7 @@ const mockUsers: User[] = [
     name: 'Administrador General',
     email: 'admin@example.com',
     roleId: 'admin',
+    role: 'admin',
   },
 ];
 
