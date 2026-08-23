@@ -1,26 +1,7 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prosperado en Todo</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #ffffff;
-            background-color: #0b0f19;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
+export default function DashboardPage() {
+  return (
+    <>
+      <style>{`
         .card-container {
             position: relative;
             width: 100%;
@@ -37,7 +18,6 @@
             text-align: center;
             padding: 3rem;
             
-            /* Fondo unificado: combinación de áreas con múltiples degradados e imagen texturizada de alta calidad */
             background: 
                 linear-gradient(135deg, rgba(11, 15, 25, 0.88) 0%, rgba(30, 41, 59, 0.75) 100%),
                 radial-gradient(circle at top right, rgba(56, 189, 248, 0.2), transparent 60%),
@@ -52,7 +32,7 @@
             z-index: 2;
         }
 
-        .badge {
+        .custom-badge {
             display: inline-block;
             padding: 0.5rem 1rem;
             margin-bottom: 1.5rem;
@@ -66,7 +46,7 @@
             border-radius: 50px;
         }
 
-        h1 {
+        .card-title {
             font-size: 2.25rem;
             line-height: 1.3;
             margin-bottom: 1rem;
@@ -75,7 +55,7 @@
             color: #f8fafc;
         }
 
-        p {
+        .card-text {
             font-size: 1.125rem;
             line-height: 1.6;
             color: #94a3b8;
@@ -89,18 +69,18 @@
             font-style: italic;
             color: #cbd5e1;
         }
-    </style>
-</head>
-<body>
+      `}</style>
 
-    <div class="card-container">
-        <div class="card-content">
-            <span class="badge">Enseñanza Especial</span>
-            <h1>Amado, deseo que seas prosperado en todo</h1>
-            <p>Y que tengas salud, así como prospera tu alma en cada paso del camino.</p>
-            <div class="verse-ref">— 3 Juan 1:2</div>
+      <main style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0b0f19', width: '100%', fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
+        <div className="card-container">
+          <div className="card-content">
+            <span className="custom-badge">Enseñanza Especial</span>
+            <h1 className="card-title">Amado, deseo que seas prosperado en todo</h1>
+            <p className="card-text">Y que tengas salud, así como prospera tu alma en cada paso del camino.</p>
+            <div className="verse-ref">— 3 Juan 1:2</div>
+          </div>
         </div>
-    </div>
-
-</body>
-</html>
+      </main>
+    </>
+  );
+}
