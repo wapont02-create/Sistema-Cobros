@@ -273,7 +273,7 @@ function CustomersDirectoryModule() {
 
 export default function DashboardPOS() {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles'>('inventory'); // Arrancamos en inventario o reporte por defecto para administradores
   
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
@@ -330,8 +330,8 @@ export default function DashboardPOS() {
   const [lastPrintedSale, setLastPrintedSale] = useState<any>(null);
   const [successModalData, setSuccessModalData] = useState<{ isOpen: boolean; changeUSD: number; changeBs: number; isCredit: boolean; clientName?: string } | null>(null);
 
-  // Verificar estatus de la caja en la API al iniciar
-  const checkCashRegisterStatus = async () => {
+  // Consultar estatus de caja sin bloquear todo el panel
+  const checkCashRegisterStatus = async (onOpenPOS?: boolean) => {
     try {
       const res = await fetch('/api/cash');
       const data = await res.json();
@@ -339,10 +339,12 @@ export default function DashboardPOS() {
         setIsCashOpen(data.isOpen);
         if (data.isOpen && data.register) {
           setActiveRegisterId(data.register.id);
-          setShowOpenCashModal(false);
+          if (onOpenPOS) setActiveTab('pos');
         } else {
           setActiveRegisterId(null);
-          setShowOpenCashModal(true);
+          if (onOpenPOS) {
+            setShowOpenCashModal(true); // Solo abre el modal si intentó entrar al POS
+          }
         }
       }
     } catch (error) {
@@ -352,7 +354,7 @@ export default function DashboardPOS() {
 
   useEffect(() => {
     setIsMounted(true);
-    checkCashRegisterStatus();
+    checkCashRegisterStatus(false);
     if (typeof window !== 'undefined') {
       const savedCredits = localStorage.getItem('pos_credits');
       if (savedCredits) { try { setCredits(JSON.parse(savedCredits)); } catch (e) { console.error(e); } }
@@ -410,6 +412,31 @@ export default function DashboardPOS() {
   const currentRoleObj = rolesList.find((r: any) => String(r.id || '').toLowerCase() === String(currentUserObj?.role || '').toLowerCase() || String(r.name || '').toLowerCase() === String(currentUserObj?.role || '').toLowerCase()) || rolesList[0];
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
+  // Manejador inteligente al cambiar de pestaña
+  const handleTabChange = async (tab: 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles') => {
+    if (tab === 'pos') {
+      // Verificamos estatus actual en backend antes de dejar entrar a POS
+      try {
+        const res = await fetch('/api/cash');
+        const data = await res.json();
+        if (data.success && data.isOpen) {
+          setIsCashOpen(true);
+          setActiveRegisterId(data.register.id);
+          setActiveTab('pos');
+        } else {
+          setIsCashOpen(false);
+          setActiveRegisterId(null);
+          setShowOpenCashModal(true); // ¡Aquí se pide abrir caja solo al intentar entrar al POS!
+        }
+      } catch (err) {
+        console.error(err);
+        setShowOpenCashModal(true);
+      }
+    } else {
+      setActiveTab(tab); // Otras pestañas (Inventario, Reportes, Roles) abren libremente
+    }
+  };
+
   const handleOpenCashSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const usd = Number(openingUSD || 0);
@@ -432,7 +459,9 @@ export default function DashboardPOS() {
         setShowOpenCashModal(false);
         setOpeningUSD('');
         setOpeningBs('');
-        checkCashRegisterStatus();
+        setIsCashOpen(true);
+        if (data.register) setActiveRegisterId(data.register.id);
+        setActiveTab('pos'); // Entra directo al POS una vez abierta
       } else {
         alert('Error: ' + data.error);
       }
@@ -465,7 +494,9 @@ export default function DashboardPOS() {
         setShowCloseCashModal(false);
         setCountedUSD('');
         setCountedBs('');
-        checkCashRegisterStatus();
+        setIsCashOpen(false);
+        setActiveRegisterId(null);
+        setActiveTab('inventory'); // Al cerrar caja, lo devolvemos al panel de inventario/administración
       } else {
         alert('Error: ' + data.error);
       }
@@ -724,7 +755,7 @@ export default function DashboardPOS() {
 
   return (
     <div className="min-h-screen bg-slate-100/60 text-slate-800 flex flex-col relative font-sans">
-      {/* Header / Navbar Enterprise con separación de controles de caja */}
+      {/* Header / Navbar Enterprise */}
       <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 px-6 py-3 flex flex-wrap justify-between items-center gap-4 shadow-xs">
         <div className="flex items-center gap-4">
           <div className="bg-blue-600 text-white p-2 rounded-2xl font-black text-sm shadow-sm">⚡ POS</div>
@@ -737,43 +768,42 @@ export default function DashboardPOS() {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs (Con control inteligente de apertura de caja al entrar a POS) */}
         <nav className="flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-2xl text-xs font-bold border border-slate-200/50">
           {userPermissions.includes('view_pos') && (
-            <button onClick={() => setActiveTab('pos')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'pos' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button onClick={() => handleTabChange('pos')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'pos' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
               🛒 POS Caja
             </button>
           )}
           {userPermissions.includes('view_inventory') && (
-            <button onClick={() => setActiveTab('inventory')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'inventory' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button onClick={() => handleTabChange('inventory')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'inventory' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
               📦 Inventario
             </button>
           )}
           {userPermissions.includes('view_reports') && (
-            <button onClick={() => setActiveTab('reports')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'reports' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button onClick={() => handleTabChange('reports')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'reports' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
               📊 Reportes
             </button>
           )}
           {(userPermissions.includes('view_credits') || userPermissions.includes('view_payables') || userPermissions.includes('manage_roles')) && (
-            <button onClick={() => setActiveTab('accounts')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'accounts' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button onClick={() => handleTabChange('accounts')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'accounts' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
               📑 Finanzas
             </button>
           )}
           {userPermissions.includes('view_pos') && (
-            <button onClick={() => setActiveTab('customers')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'customers' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button onClick={() => handleTabChange('customers')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'customers' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
               👥 Clientes
             </button>
           )}
           {userPermissions.includes('manage_roles') && (
-            <button onClick={() => setActiveTab('roles')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'roles' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button onClick={() => handleTabChange('roles')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'roles' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
               🔐 Roles
             </button>
           )}
         </nav>
 
-        {/* User Profile & Separated Shift Controls */}
+        {/* User Profile & Shift Controls */}
         <div className="flex items-center gap-3">
-          {/* Botón Profesional Independiente de Cierre de Caja / Arqueo */}
           {isCashOpen && (
             <button
               onClick={() => setShowCloseCashModal(true)}
@@ -1248,14 +1278,14 @@ export default function DashboardPOS() {
         {activeTab === 'roles' && <RolesManagerModule />}
       </main>
 
-      {/* MODAL OBLIGATORIO DE APERTURA DE CAJA (Si no hay turno activo) */}
+      {/* MODAL DE APERTURA DE CAJA (Se activa SOLO al intentar hacer clic en la pestaña POS si la caja está cerrada) */}
       {showOpenCashModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
             <div className="text-center space-y-1">
               <span className="text-3xl">🔓</span>
               <h3 className="text-lg font-black text-slate-900">Apertura Obligatoria de Turno</h3>
-              <p className="text-xs text-slate-500">Debe registrar el fondo inicial en caja para poder operar el sistema comercial.</p>
+              <p className="text-xs text-slate-500">Debe registrar el fondo inicial en caja para poder entrar al módulo de ventas POS.</p>
             </div>
             <form onSubmit={handleOpenCashSubmit} className="space-y-3">
               <div>
@@ -1266,9 +1296,12 @@ export default function DashboardPOS() {
                 <label className="block text-xs font-bold text-slate-700 mb-1">Fondo Inicial Bs. (Bs.)</label>
                 <input type="number" min="0" step="0.01" required value={openingBs} onChange={e => setOpeningBs(e.target.value)} placeholder="0.00" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-bold shadow-2xs" />
               </div>
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-2xl text-xs transition shadow-sm mt-2">
-                Abrir Caja y Comenzar Turno ⚡
-              </button>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowOpenCashModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-3 rounded-2xl text-xs font-bold text-slate-600 transition">Cancelar</button>
+                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-2xl text-xs transition shadow-sm">
+                  Abrir Caja ⚡
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -1363,20 +1396,72 @@ export default function DashboardPOS() {
         </div>
       )}
 
-      {/* Success / Receipt Modal */}
+      {/* Success / Receipt Modal con soporte para window.print() */}
       {successModalData && successModalData.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center animate-scaleUp">
-            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto text-xl font-bold shadow-2xs">✓</div>
-            <h3 className="text-lg font-black text-slate-900">¡Venta Exitosa!</h3>
-            {successModalData.changeUSD > 0 && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900 space-y-0.5">
-                <div className="font-bold text-[10px] text-emerald-700 uppercase tracking-wider">Cambio a Entregar</div>
-                <div className="text-sm font-black">${successModalData.changeUSD.toFixed(2)} / Bs. {successModalData.changeBs.toFixed(2)}</div>
+            
+            <div id="printable-ticket" className="bg-white text-slate-800 p-4 rounded-2xl border border-slate-100 text-left font-mono text-xs space-y-3">
+              <div className="text-center space-y-0.5 border-b border-dashed border-slate-300 pb-3">
+                <h4 className="font-black text-sm uppercase">⚡ Mi Empresa C.A.</h4>
+                <p className="text-[10px] text-slate-500">RIF: J-00000000-0</p>
+                <p className="text-[10px] text-slate-500">Sistema POS Enterprise</p>
               </div>
-            )}
-            {lastPrintedSale && <ReceiptTicket sale={lastPrintedSale} />}
-            <button onClick={() => setSuccessModalData(null)} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-2xl text-xs font-bold shadow-sm transition">Continuar Vendiendo ⚡</button>
+
+              <div className="space-y-1 text-[11px] border-b border-dashed border-slate-300 pb-3">
+                <div className="flex justify-between"><span>Fecha:</span> <span className="font-bold">{lastPrintedSale?.date || new Date().toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Cliente:</span> <span className="font-bold">{lastPrintedSale?.clientName || 'Cliente Genérico'}</span></div>
+                <div className="flex justify-between"><span>Método:</span> <span className="font-bold">{lastPrintedSale?.paymentMethod}</span></div>
+              </div>
+
+              <div className="space-y-1.5 border-b border-dashed border-slate-300 pb-3">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Descripción / Cant. / Precio</div>
+                {lastPrintedSale?.items?.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between gap-2">
+                    <span className="truncate flex-1">{item.quantity}x {item.name}</span>
+                    <span className="font-bold">${(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1 text-[11px] pt-1">
+                <div className="flex justify-between"><span>Subtotal:</span> <span>${lastPrintedSale?.subtotalUSD?.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>IVA (16%):</span> <span>${lastPrintedSale?.ivaUSD?.toFixed(2)}</span></div>
+                <div className="flex justify-between font-black text-sm pt-1 border-t border-slate-200">
+                  <span>TOTAL USD:</span> 
+                  <span>${lastPrintedSale?.totalUSD?.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-blue-600">
+                  <span>TOTAL Bs.:</span> 
+                  <span>Bs. {lastPrintedSale?.totalBs?.toFixed(2)}</span>
+                </div>
+                {successModalData.changeUSD > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-bold pt-1">
+                    <span>Cambio Entregado:</span> 
+                    <span>${successModalData.changeUSD.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="text-center pt-3 border-t border-dashed border-slate-300 text-[10px] text-slate-400">
+                ¡Gracias por su compra!<br/>Conserve su ticket.
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-2xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5"
+              >
+                🖨️ Imprimir
+              </button>
+              <button
+                onClick={() => setSuccessModalData(null)}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-2xl text-xs font-bold shadow-sm transition"
+              >
+                Continuar ⚡
+              </button>
+            </div>
           </div>
         </div>
       )}
