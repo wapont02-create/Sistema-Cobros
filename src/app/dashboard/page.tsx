@@ -885,8 +885,8 @@ export default function DashboardPOS() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex font-sans">
-      {/* Sidebar Corporativo (Menú con fondo clarito) */}
-      <aside className="w-64 bg-slate-50/90 border-r border-slate-200/90 flex flex-col justify-between p-5 hidden md:flex sticky top-0 h-screen z-40 shadow-xs">
+      {/* Sidebar Corporativo */}
+      <aside className="w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between p-5 hidden md:flex sticky top-0 h-screen z-40 shadow-xs">
         <div className="space-y-6">
           <div className="flex items-center gap-3 px-2">
             <div className="bg-blue-600 text-white p-2.5 rounded-xl font-black text-xs shadow-sm">⚡ POS</div>
@@ -898,39 +898,39 @@ export default function DashboardPOS() {
 
           <nav className="space-y-1.5 text-xs font-bold">
             {userPermissions.includes('view_pos') && (
-              <button onClick={() => setActiveTab('pos')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'pos' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-100/80'}`}>
+              <button onClick={() => setActiveTab('pos')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'pos' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-50'}`}>
                 🛒 <span>POS Caja</span>
               </button>
             )}
             {userPermissions.includes('view_inventory') && (
-              <button onClick={() => setActiveTab('inventory')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-100/80'}`}>
+              <button onClick={() => setActiveTab('inventory')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-50'}`}>
                 📦 <span>Inventario</span>
               </button>
             )}
             {userPermissions.includes('view_reports') && (
-              <button onClick={() => setActiveTab('reports')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'reports' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-100/80'}`}>
+              <button onClick={() => setActiveTab('reports')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'reports' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-50'}`}>
                 📊 <span>Reportes</span>
               </button>
             )}
             {(userPermissions.includes('view_credits') || userPermissions.includes('view_payables') || userPermissions.includes('manage_roles')) && (
-              <button onClick={() => setActiveTab('accounts')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-100/80'}`}>
+              <button onClick={() => setActiveTab('accounts')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'accounts' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-50'}`}>
                 📑 <span>Finanzas</span>
               </button>
             )}
             {userPermissions.includes('view_pos') && (
-              <button onClick={() => setActiveTab('customers')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'customers' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-100/80'}`}>
+              <button onClick={() => setActiveTab('customers')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'customers' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-50'}`}>
                 👥 <span>Clientes</span>
               </button>
             )}
             {userPermissions.includes('manage_roles') && (
-              <button onClick={() => setActiveTab('roles')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'roles' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-100/80'}`}>
+              <button onClick={() => setActiveTab('roles')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${activeTab === 'roles' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:bg-slate-50'}`}>
                 🔐 <span>Roles y Accesos</span>
               </button>
             )}
           </nav>
         </div>
 
-        <div className="bg-white border border-slate-200/80 p-3.5 rounded-2xl space-y-2">
+        <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl space-y-2">
           <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tasa BCV Activa</div>
           <div className="text-xs font-black text-blue-600">Bs. {exchangeRate.toFixed(2)} / $1</div>
         </div>
@@ -1050,10 +1050,10 @@ export default function DashboardPOS() {
                 </div>
               </div>
 
-              {/* Cart Sidebar (Carrito con fondo clarito) */}
+              {/* Cart Sidebar */}
               <div className="space-y-4">
-                <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col h-[calc(100vh-170px)] sticky top-20">
-                  <div className="flex justify-between items-center border-b border-slate-200/60 pb-3">
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col h-[calc(100vh-170px)] sticky top-20">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                     <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider">🛒 Carrito Actual</h3>
                     <button onClick={() => setCart([])} className="text-xs text-rose-500 font-bold hover:underline">Vaciar</button>
                   </div>
@@ -1072,13 +1072,13 @@ export default function DashboardPOS() {
                       </div>
                     ) : (
                       cart.map(item => (
-                        <div key={item.id} className="bg-white border border-slate-200/80 rounded-xl p-3 flex justify-between items-center gap-2.5 shadow-2xs">
+                        <div key={item.id} className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3 flex justify-between items-center gap-2.5">
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-xs text-slate-900 truncate">{item.name}</div>
                             <div className="text-[10px] text-slate-500 font-medium">${item.price.toFixed(2)} c/u</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
                               <button onClick={() => updateCartQuantity(item.id, -1)} className="px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100">-</button>
                               <span className="px-2 text-xs font-bold">{item.quantity}</span>
                               <button onClick={() => updateCartQuantity(item.id, 1)} className="px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100">+</button>
@@ -1090,7 +1090,7 @@ export default function DashboardPOS() {
                     )}
                   </div>
 
-                  <div className="border-t border-slate-200/60 pt-3.5 space-y-2">
+                  <div className="border-t border-slate-100 pt-3.5 space-y-2">
                     <div className="flex justify-between text-xs text-slate-600 font-medium">
                       <span>Subtotal</span>
                       <span>${subtotalUSD.toFixed(2)}</span>
@@ -1099,7 +1099,7 @@ export default function DashboardPOS() {
                       <span>IVA (16%)</span>
                       <span>${ivaUSD.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm font-black text-slate-900 pt-1 border-t border-slate-200/60">
+                    <div className="flex justify-between text-sm font-black text-slate-900 pt-1 border-t border-slate-100">
                       <span>Total USD</span>
                       <span>${totalUSD.toFixed(2)}</span>
                     </div>
