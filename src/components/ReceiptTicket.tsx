@@ -1,40 +1,51 @@
 import React from 'react';
 
 type CartItem = {
-  id: number;
-  name: string;
+  id?: number;
+  product_id?: number;
+  name?: string;
   price: number;
   quantity: number;
-  taxable: boolean;
+  taxable?: boolean | number;
+};
+
+type SaleData = {
+  id?: number | string;
+  created_at?: string;
+  clientName?: string;
+  items: CartItem[];
+  subtotalUSD?: number;
+  ivaUSD?: number;
+  total_usd: number;
+  total_ves: number;
+  exchange_rate: number;
+  payment_method: string;
+  changeUSD?: number;
 };
 
 type ReceiptProps = {
-  saleId?: number | string;
-  date: string;
-  clientName: string;
-  items: CartItem[];
-  subtotalUSD: number;
-  ivaUSD: number;
-  totalUSD: number;
-  totalBs: number;
-  exchangeRate: number;
-  paymentMethod: string;
-  changeUSD: number;
+  sale: SaleData;
 };
 
-export default function ReceiptTicket({
-  saleId = 'TEMP',
-  date,
-  clientName,
-  items,
-  subtotalUSD,
-  ivaUSD,
-  totalUSD,
-  totalBs,
-  exchangeRate,
-  paymentMethod,
-  changeUSD,
-}: ReceiptProps) {
+export default function ReceiptTicket({ sale }: ReceiptProps) {
+  if (!sale) return null;
+
+  // Extracción segura de propiedades con valores por defecto
+  const saleId = sale.id ?? 'TEMP';
+  const date = sale.created_at ?? new Date().toLocaleString();
+  const clientName = sale.clientName ?? 'Cliente General';
+  const items = sale.items ?? [];
+  
+  const exchangeRate = sale.exchange_rate ?? 0;
+  const totalUSD = sale.total_usd ?? 0;
+  const totalBs = sale.total_ves ?? 0;
+  const paymentMethod = sale.payment_method ?? 'Efectivo';
+  const changeUSD = sale.changeUSD ?? 0;
+
+  // Cálculo de subtotales por si no vienen explícitos en el objeto
+  const subtotalUSD = sale.subtotalUSD ?? items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+  const ivaUSD = sale.ivaUSD ?? 0;
+
   return (
     <div className="hidden print:block print:fixed print:inset-0 print:bg-white print:text-black print:p-4 font-mono text-xs leading-tight">
       {/* Encabezado del Ticket */}
@@ -60,10 +71,10 @@ export default function ReceiptTicket({
         </div>
         {items.map((item, index) => (
           <div key={index} className="mb-1">
-            <div>{item.name} {item.taxable ? '*' : ''}</div>
+            <div>{item.name || `Producto #${item.product_id || item.id}`} {item.taxable ? '*' : ''}</div>
             <div className="flex justify-between pl-2">
-              <span>{item.quantity} un. x ${item.price.toFixed(2)}</span>
-              <span>${(item.price * item.quantity).toFixed(2)}</span>
+              <span>{item.quantity} un. x ${(item.price || 0).toFixed(2)}</span>
+              <span>${((item.price || 0) * item.quantity).toFixed(2)}</span>
             </div>
           </div>
         ))}
@@ -75,10 +86,12 @@ export default function ReceiptTicket({
           <span>Subtotal:</span>
           <span>${subtotalUSD.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>IVA (16%):</span>
-          <span>${ivaUSD.toFixed(2)}</span>
-        </div>
+        {ivaUSD > 0 && (
+          <div className="flex justify-between">
+            <span>IVA:</span>
+            <span>${ivaUSD.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex justify-between font-bold text-sm pt-1 border-t border-black">
           <span>TOTAL USD:</span>
           <span>${totalUSD.toFixed(2)}</span>
@@ -92,7 +105,7 @@ export default function ReceiptTicket({
       {/* Método de pago y vuelto */}
       <div className="border-t border-dashed border-black pt-1 mt-2 space-y-0.5">
         <p><strong>Método de Pago:</strong> {paymentMethod}</p>
-        {paymentMethod !== 'Crédito / Fiado' && (
+        {paymentMethod !== 'Crédito / Fiado' && changeUSD > 0 && (
           <p><strong>Vuelto Entregado:</strong> ${changeUSD.toFixed(2)} (Bs. {(changeUSD * exchangeRate).toFixed(2)})</p>
         )}
       </div>
