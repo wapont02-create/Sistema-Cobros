@@ -37,18 +37,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Insertar la venta principal usando exactamente las columnas reales de la tabla sales
+    // Asegurar valores por defecto para evitar cualquier 'undefined' en los parámetros
+    const safeTotalUSD = Number(totalUSD) || 0;
+    const safePaymentMethod = paymentMethod || 'Efectivo USD';
+    const safeCashRegisterId = Number(cash_register_id) || 1;
+    const safeTotalBs = Number(totalBs) || 0;
+    const safeExchangeRate = Number(exchangeRate) || 1;
+    const safeDate = date || new Date().toISOString();
+
+    // 1. Insertar la venta principal
     const saleResult: any = await runQuery(async (db) => {
       return await db.sql(
         `INSERT INTO sales (total_usd, payment_method, cash_register_id, total_ves, exchange_rate, created_at)  
          VALUES (?, ?, ?, ?, ?, ?)`,
         [  
-          totalUSD || 0,  
-          paymentMethod || 'Efectivo USD',  
-          cash_register_id,  
-          totalBs || 0,  
-          exchangeRate || 1,  
-          date || new Date().toISOString()  
+          safeTotalUSD,  
+          safePaymentMethod,  
+          safeCashRegisterId,  
+          safeTotalBs,  
+          safeExchangeRate,  
+          safeDate  
         ]  
       );
     });  
@@ -59,17 +67,21 @@ export async function POST(request: Request) {
     // 2. Insertar los ítems y descontar stock de inventario
     if (items && Array.isArray(items)) {  
       for (const item of items) {  
+        const productId = Number(item.id || item.product_id) || 0;
+        const quantity = Number(item.quantity) || 1;
+        const price = Number(item.price || item.price_usd) || 0;
+
         await runQuery(async (db) => {
           return await db.sql(
             `INSERT INTO sale_items (sale_id, product_id, quantity, price_at_sale) VALUES (?, ?, ?, ?)`,
-            [saleId, item.id || item.product_id, item.quantity, item.price || item.price_usd || 0]
+            [saleId, productId, quantity, price]
           );
         });  
 
         await runQuery(async (db) => {
           return await db.sql(
             `UPDATE products SET stock = stock - ? WHERE id = ?`,
-            [item.quantity, item.id || item.product_id]
+            [quantity, productId]
           );
         });  
       }  
