@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Asegurar valores por defecto para evitar cualquier 'undefined' en los parámetros
+    // Asegurar valores por defecto
     const safeTotalUSD = Number(totalUSD) || 0;
     const safePaymentMethod = paymentMethod || 'Efectivo USD';
     const safeCashRegisterId = Number(cash_register_id) || 1;
@@ -45,19 +45,17 @@ export async function POST(request: Request) {
     const safeExchangeRate = Number(exchangeRate) || 1;
     const safeDate = date || new Date().toISOString();
 
-    // 1. Insertar la venta principal
+    // 1. Insertar la venta principal (Parámetros como argumentos independientes)
     const saleResult: any = await runQuery(async (db) => {
       return await db.sql(
         `INSERT INTO sales (total_usd, payment_method, cash_register_id, total_ves, exchange_rate, created_at)  
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [  
-          safeTotalUSD,  
-          safePaymentMethod,  
-          safeCashRegisterId,  
-          safeTotalBs,  
-          safeExchangeRate,  
-          safeDate  
-        ]  
+        safeTotalUSD,  
+        safePaymentMethod,  
+        safeCashRegisterId,  
+        safeTotalBs,  
+        safeExchangeRate,  
+        safeDate  
       );
     });  
 
@@ -74,14 +72,14 @@ export async function POST(request: Request) {
         await runQuery(async (db) => {
           return await db.sql(
             `INSERT INTO sale_items (sale_id, product_id, quantity, price_at_sale) VALUES (?, ?, ?, ?)`,
-            [saleId, productId, quantity, price]
+            saleId, productId, quantity, price
           );
         });  
 
         await runQuery(async (db) => {
           return await db.sql(
             `UPDATE products SET stock = stock - ? WHERE id = ?`,
-            [quantity, productId]
+            quantity, productId
           );
         });  
       }  
