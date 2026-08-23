@@ -189,229 +189,6 @@ function POSCustomerSelector({ onSelectCustomer }: { onSelectCustomer: (client: 
   );
 }
 
-type CashRegisterSession = {
-  id: number;
-  status: 'Abierta' | 'Cerrada';
-  openedAt: string;
-  closedAt?: string;
-  openingUSD: number;
-  openingBs: number;
-  countedUSD?: number;
-  countedBs?: number;
-  expectedUSD?: number;
-  expectedBs?: number;
-  differenceUSD?: number;
-  differenceBs?: number;
-};
-
-const CASH_REGISTER_STORAGE_KEY = 'pos_enterprise_cash_register_session';
-
-function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
-  const [register, setRegister] = useState<CashRegisterSession | null>(null);
-  const [openingUSD, setOpeningUSD] = useState('');
-  const [openingBs, setOpeningBs] = useState('');
-  const [closingModal, setClosingModal] = useState(false);
-  const [countedUSD, setCountedUSD] = useState('');
-  const [countedBs, setCountedBs] = useState('');
-  const [expectedUSD, setExpectedUSD] = useState(0);
-  const [expectedBs, setExpectedBs] = useState(0);
-  const [isClosing, setIsClosing] = useState(false);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CASH_REGISTER_STORAGE_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as CashRegisterSession;
-      if (parsed?.status === 'Abierta') {
-        setRegister(parsed);
-        setOpeningUSD(String(parsed.openingUSD));
-        setOpeningBs(String(parsed.openingBs));
-      }
-    } catch (error) {
-      console.error('Error recuperando la caja:', error);
-    }
-  }, []);
-
-  const isOpened = register?.status === 'Abierta';
-
-  const handleOpenRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    const usd = Number(openingUSD || 0);
-    const bs = Number(openingBs || 0);
-
-    if (usd < 0 || bs < 0) {
-      alert('El fondo inicial no puede ser negativo.');
-      return;
-    }
-    if (usd === 0 && bs === 0) {
-      alert('Ingrese al menos un fondo inicial en USD o Bs.');
-      return;
-    }
-
-    const newSession: CashRegisterSession = {
-      id: Date.now(),
-      status: 'Abierta',
-      openedAt: new Date().toISOString(),
-      openingUSD: usd,
-      openingBs: bs,
-    };
-
-    setRegister(newSession);
-    localStorage.setItem(CASH_REGISTER_STORAGE_KEY, JSON.stringify(newSession));
-    alert('¡Caja abierta exitosamente!');
-  };
-
-  const calculateExpectedCash = async () => {
-    if (!register) return { usd: 0, bs: 0 };
-    try {
-      const response = await fetch('/api/sales');
-      if (!response.ok) throw new Error('No se pudieron consultar las ventas.');
-      const sales = await response.json();
-      if (!Array.isArray(sales)) return { usd: register.openingUSD, bs: register.openingBs };
-
-      const openingTime = new Date(register.openedAt).getTime();
-      let cashUSD = register.openingUSD;
-      let cashBs = register.openingBs;
-
-      sales.forEach((sale: any) => {
-        const saleDateValue = sale.created_at || sale.createdAt || sale.date;
-        const saleTime = saleDateValue ? new Date(saleDateValue).getTime() : NaN;
-        if (!Number.isFinite(saleTime) || saleTime < openingTime) return;
-
-        const method = sale.payment_method || sale.paymentMethod || 'Efectivo USD';
-        const totalUSD = Number(sale.total_usd ?? sale.totalUSD ?? 0) || 0;
-        const totalBs = Number(sale.total_bs ?? sale.totalBs ?? 0) || 0;
-
-        if (method === 'Efectivo USD' || method === 'Efectivo') {
-          cashUSD += totalUSD;
-        } else if (method === 'Efectivo Bs') {
-          cashBs += totalBs || (totalUSD * exchangeRate);
-        }
-      });
-      return { usd: cashUSD, bs: cashBs };
-    } catch (error) {
-      console.error('Error calculando efectivo esperado:', error);
-      throw error;
-    }
-  };
-
-  const openClosingModal = async () => {
-    if (!register) return;
-    setIsClosing(true);
-    try {
-      const expected = await calculateExpectedCash();
-      setExpectedUSD(expected.usd);
-      setExpectedBs(expected.bs);
-      setClosingModal(true);
-    } catch (error) {
-      alert('No se pudo calcular el efectivo esperado.');
-    } finally {
-      setIsClosing(false);
-    }
-  };
-
-  const handleCloseRegister = async () => {
-    if (!register) return;
-    const actualUSD = Number(countedUSD || 0);
-    const actualBs = Number(countedBs || 0);
-
-    if (actualUSD < 0 || actualBs < 0) {
-      alert('El efectivo contado no puede ser negativo.');
-      return;
-    }
-
-    const differenceUSD = actualUSD - expectedUSD;
-    const differenceBs = actualBs - expectedBs;
-    const closedSession: CashRegisterSession = {
-      ...register,
-      status: 'Cerrada',
-      closedAt: new Date().toISOString(),
-      countedUSD: actualUSD,
-      countedBs: actualBs,
-      expectedUSD,
-      expectedBs,
-      differenceUSD,
-      differenceBs,
-    };
-
-    const historyKey = 'pos_enterprise_cash_register_history';
-    try {
-      const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-      localStorage.setItem(historyKey, JSON.stringify([closedSession, ...(Array.isArray(history) ? history : [])]));
-    } catch (error) {
-      console.error('Error guardando historial:', error);
-    }
-
-    localStorage.removeItem(CASH_REGISTER_STORAGE_KEY);
-    setRegister(null);
-    setOpeningUSD('');
-    setOpeningBs('');
-    setClosingModal(false);
-    setCountedUSD('');
-    setCountedBs('');
-
-    alert(
-      `--- CIERRE DE CAJA ---\n\n` +
-      `USD Esperado: $${expectedUSD.toFixed(2)} | Contado: $${actualUSD.toFixed(2)}\n` +
-      `Bs. Esperado: Bs. ${expectedBs.toFixed(2)} | Contado: Bs. ${actualBs.toFixed(2)}`
-    );
-  };
-
-  return (
-    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-        <div>
-          <h3 className="text-base font-extrabold text-slate-800">🔐 Control de Caja y Turno</h3>
-          {register && <p className="text-[10px] text-slate-400 mt-0.5">Abierta desde: {new Date(register.openedAt).toLocaleTimeString()}</p>}
-        </div>
-        <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${isOpened ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-          {isOpened ? '🟢 Abierta' : '🔴 Cerrada'}
-        </span>
-      </div>
-
-      {!isOpened ? (
-        <form onSubmit={handleOpenRegister} className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
-          <div className="text-xs font-bold text-slate-700">Fondo Inicial de Caja</div>
-          <div className="grid grid-cols-2 gap-3">
-            <input type="number" min="0" step="0.01" required value={openingUSD} onChange={(e) => setOpeningUSD(e.target.value)} placeholder="USD ($)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold shadow-2xs" />
-            <input type="number" min="0" step="0.01" required value={openingBs} onChange={(e) => setOpeningBs(e.target.value)} placeholder="Bs. (Bs.)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold shadow-2xs" />
-          </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
-            Abrir Turno 🔓
-          </button>
-        </form>
-      ) : (
-        <div className="space-y-3">
-          <div className="bg-emerald-50/60 border border-emerald-200 p-3.5 rounded-2xl text-xs space-y-1 text-emerald-900">
-            <div className="font-bold">Turno en curso activo</div>
-            <div className="text-[11px]">Inicial: <strong>${register?.openingUSD.toFixed(2)}</strong> / <strong>Bs. {register?.openingBs.toFixed(2)}</strong></div>
-          </div>
-          <button disabled={isClosing} onClick={openClosingModal} className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
-            {isClosing ? 'Calculando...' : 'Realizar Conteo Ciego y Cerrar 🔒'}
-          </button>
-        </div>
-      )}
-
-      {closingModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
-            <h3 className="text-base font-extrabold text-slate-800">Conteo Ciego de Cierre</h3>
-            <p className="text-xs text-slate-500">Ingrese el efectivo físico total contado en gaveta.</p>
-            <div className="space-y-3">
-              <input type="number" min="0" step="0.01" placeholder="Total USD contado ($)" value={countedUSD} onChange={(e) => setCountedUSD(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold" />
-              <input type="number" min="0" step="0.01" placeholder="Total Bs contado (Bs.)" value={countedBs} onChange={(e) => setCountedBs(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold" />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <button onClick={() => setClosingModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-2.5 rounded-xl text-xs font-bold text-slate-600">Cancelar</button>
-              <button onClick={handleCloseRegister} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm">Confirmar Cierre ✓</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function CustomersDirectoryModule() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [name, setName] = useState('');
@@ -508,6 +285,16 @@ export default function DashboardPOS() {
   const [rolesList, setRolesList] = useState(getRoles());
   const [usersList, setUsersList] = useState(getUsers());
 
+  // Estados de control de caja backend API
+  const [isCashOpen, setIsCashOpen] = useState(false);
+  const [activeRegisterId, setActiveRegisterId] = useState<number | null>(null);
+  const [showOpenCashModal, setShowOpenCashModal] = useState(false);
+  const [showCloseCashModal, setShowCloseCashModal] = useState(false);
+  const [openingUSD, setOpeningUSD] = useState('');
+  const [openingBs, setOpeningBs] = useState('');
+  const [countedUSD, setCountedUSD] = useState('');
+  const [countedBs, setCountedBs] = useState('');
+
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
@@ -543,8 +330,29 @@ export default function DashboardPOS() {
   const [lastPrintedSale, setLastPrintedSale] = useState<any>(null);
   const [successModalData, setSuccessModalData] = useState<{ isOpen: boolean; changeUSD: number; changeBs: number; isCredit: boolean; clientName?: string } | null>(null);
 
+  // Verificar estatus de la caja en la API al iniciar
+  const checkCashRegisterStatus = async () => {
+    try {
+      const res = await fetch('/api/cash');
+      const data = await res.json();
+      if (data.success) {
+        setIsCashOpen(data.isOpen);
+        if (data.isOpen && data.register) {
+          setActiveRegisterId(data.register.id);
+          setShowOpenCashModal(false);
+        } else {
+          setActiveRegisterId(null);
+          setShowOpenCashModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando estatus de caja:', error);
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
+    checkCashRegisterStatus();
     if (typeof window !== 'undefined') {
       const savedCredits = localStorage.getItem('pos_credits');
       if (savedCredits) { try { setCredits(JSON.parse(savedCredits)); } catch (e) { console.error(e); } }
@@ -568,7 +376,7 @@ export default function DashboardPOS() {
         const salesRes = await fetch('/api/sales');
         const salesData = await salesRes.json();
         if (Array.isArray(salesData)) {
-          const formattedSales = salesData.map(sale => ({
+          const formattedSales = salesData.map((sale: any) => ({
             id: sale.id,
             items: sale.items || [],
             subtotalUSD: Number(sale.subtotal_usd || sale.subtotalUSD || 0),
@@ -602,40 +410,70 @@ export default function DashboardPOS() {
   const currentRoleObj = rolesList.find((r: any) => String(r.id || '').toLowerCase() === String(currentUserObj?.role || '').toLowerCase() || String(r.name || '').toLowerCase() === String(currentUserObj?.role || '').toLowerCase()) || rolesList[0];
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
-  useEffect(() => {
-    const tabPermissionMap: Record<string, string[]> = {
-      pos: ['view_pos'],
-      inventory: ['view_inventory'],
-      accounts: ['view_credits', 'view_payables', 'manage_roles'],
-      reports: ['view_reports'],
-      customers: ['view_pos'],
-      roles: ['manage_roles'],
-    };
+  const handleOpenCashSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const usd = Number(openingUSD || 0);
+    const bs = Number(openingBs || 0);
 
-    const requiredPermissions = tabPermissionMap[activeTab] || [];
-    const hasAccess = requiredPermissions.length === 0 || requiredPermissions.some(p => (userPermissions as string[]).includes(p as string));
-
-    if (!hasAccess) {
-      const availableTab = Object.keys(tabPermissionMap).find(tab => {
-        const perms = tabPermissionMap[tab];
-        return perms.some(p => (userPermissions as string[]).includes(p as string));
-      }) as 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles' | undefined;
-
-      if (availableTab && availableTab !== activeTab) setActiveTab(availableTab);
+    try {
+      const res = await fetch('/api/cash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'open',
+          openingUSD: usd,
+          openingBs: bs,
+          userId: currentUserObj?.id || 1
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('¡Caja abierta exitosamente!');
+        setShowOpenCashModal(false);
+        setOpeningUSD('');
+        setOpeningBs('');
+        checkCashRegisterStatus();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error abriendo la caja.');
     }
-  }, [currentUsername, currentRoleObj, userPermissions, activeTab]);
+  };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('pos_credits', JSON.stringify(credits));
-  }, [credits]);
+  const handleCloseCashSubmit = async () => {
+    if (!activeRegisterId) {
+      alert('No se encontró el ID de la caja abierta actual.');
+      return;
+    }
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('pos_payables', JSON.stringify(payables));
-  }, [payables]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('pos_bcv', exchangeRate.toString());
-  }, [exchangeRate]);
+    try {
+      const res = await fetch('/api/cash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'close',
+          registerId: activeRegisterId,
+          countedUSD: Number(countedUSD || 0),
+          countedBs: Number(countedBs || 0)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('¡Caja cerrada y arqueada exitosamente!');
+        setShowCloseCashModal(false);
+        setCountedUSD('');
+        setCountedBs('');
+        checkCashRegisterStatus();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error cerrando la caja.');
+    }
+  };
 
   if (!isMounted) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-800 text-sm font-bold">Cargando POS Enterprise...</div>;
 
@@ -680,7 +518,6 @@ export default function DashboardPOS() {
   const totalUSD = subtotalUSD + ivaUSD;
   const totalBs = totalUSD * exchangeRate;
 
-  // KPIs calculations
   const totalSalesTodayUSD = salesHistory.reduce((acc, s) => acc + s.totalUSD, 0);
   const totalTransactionsCount = salesHistory.length;
   const lowStockCount = products.filter(p => p.stock <= 5).length;
@@ -887,7 +724,7 @@ export default function DashboardPOS() {
 
   return (
     <div className="min-h-screen bg-slate-100/60 text-slate-800 flex flex-col relative font-sans">
-      {/* Header / Navbar Enterprise */}
+      {/* Header / Navbar Enterprise con separación de controles de caja */}
       <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 px-6 py-3 flex flex-wrap justify-between items-center gap-4 shadow-xs">
         <div className="flex items-center gap-4">
           <div className="bg-blue-600 text-white p-2 rounded-2xl font-black text-sm shadow-sm">⚡ POS</div>
@@ -934,15 +771,27 @@ export default function DashboardPOS() {
           )}
         </nav>
 
-        {/* User Profile Info */}
-        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/70 px-3 py-1.5 rounded-2xl">
-          <div className="text-right">
-            <div className="text-xs font-bold text-slate-800">{currentUserObj?.name || currentUsername}</div>
-            <div className="text-[10px] text-blue-600 font-semibold">{currentRoleObj?.name || 'Operador'}</div>
+        {/* User Profile & Separated Shift Controls */}
+        <div className="flex items-center gap-3">
+          {/* Botón Profesional Independiente de Cierre de Caja / Arqueo */}
+          {isCashOpen && (
+            <button
+              onClick={() => setShowCloseCashModal(true)}
+              className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition shadow-sm flex items-center gap-1.5"
+            >
+              🔒 Arqueo / Cerrar Caja
+            </button>
+          )}
+
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/70 px-3 py-1.5 rounded-2xl">
+            <div className="text-right">
+              <div className="text-xs font-bold text-slate-800">{currentUserObj?.name || currentUsername}</div>
+              <div className="text-[10px] text-blue-600 font-semibold">{currentRoleObj?.name || 'Operador'}</div>
+            </div>
+            <select value={currentUsername} onChange={(e) => setCurrentUsername(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none">
+              {usersList.map((u: any) => (<option key={u.id || u.username} value={u.username}>{u.name || u.username}</option>))}
+            </select>
           </div>
-          <select value={currentUsername} onChange={(e) => setCurrentUsername(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none">
-            {usersList.map((u: any) => (<option key={u.id || u.username} value={u.username}>{u.name || u.username}</option>))}
-          </select>
         </div>
       </header>
 
@@ -1191,7 +1040,6 @@ export default function DashboardPOS() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <CashRegisterModule exchangeRate={exchangeRate} />
               <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
                 <h3 className="text-base font-extrabold text-slate-800">💱 Tasa Oficial BCV</h3>
                 <p className="text-xs text-slate-500">Actualiza la tasa de referencia para el cálculo instantáneo en bolívares.</p>
@@ -1399,6 +1247,56 @@ export default function DashboardPOS() {
         {/* TAB 6: ROLES */}
         {activeTab === 'roles' && <RolesManagerModule />}
       </main>
+
+      {/* MODAL OBLIGATORIO DE APERTURA DE CAJA (Si no hay turno activo) */}
+      {showOpenCashModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="text-center space-y-1">
+              <span className="text-3xl">🔓</span>
+              <h3 className="text-lg font-black text-slate-900">Apertura Obligatoria de Turno</h3>
+              <p className="text-xs text-slate-500">Debe registrar el fondo inicial en caja para poder operar el sistema comercial.</p>
+            </div>
+            <form onSubmit={handleOpenCashSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Fondo Inicial USD ($)</label>
+                <input type="number" min="0" step="0.01" required value={openingUSD} onChange={e => setOpeningUSD(e.target.value)} placeholder="0.00" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-bold shadow-2xs" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Fondo Inicial Bs. (Bs.)</label>
+                <input type="number" min="0" step="0.01" required value={openingBs} onChange={e => setOpeningBs(e.target.value)} placeholder="0.00" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-bold shadow-2xs" />
+              </div>
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-2xl text-xs transition shadow-sm mt-2">
+                Abrir Caja y Comenzar Turno ⚡
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ARQUEO Y CIERRE DE CAJA */}
+      {showCloseCashModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <h3 className="text-base font-extrabold text-slate-800">🔒 Arqueo y Cierre de Caja</h3>
+            <p className="text-xs text-slate-500">Ingrese el efectivo físico total contado en gaveta para cerrar el turno actual.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Total USD Contado ($)</label>
+                <input type="number" min="0" step="0.01" placeholder="0.00" value={countedUSD} onChange={(e) => setCountedUSD(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-bold" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Total Bs. Contado (Bs.)</label>
+                <input type="number" min="0" step="0.01" placeholder="0.00" value={countedBs} onChange={(e) => setCountedBs(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-bold" />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setShowCloseCashModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-3 rounded-2xl text-xs font-bold text-slate-600 transition">Cancelar</button>
+              <button onClick={handleCloseCashSubmit} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-2xl text-xs font-bold shadow-sm transition">Confirmar Cierre ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checkout Modal */}
       {isCheckoutModalOpen && (
