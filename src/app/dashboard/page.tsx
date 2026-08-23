@@ -31,7 +31,8 @@ type SaleRecord = {
   paymentMethod: PaymentMethodType;
   changeUSD: number;
   clientName?: string;
-  created_at?: string; 
+  created_at?: string;
+  cashRegisterId?: number;
 };
 
 type CreditAccount = {
@@ -200,10 +201,25 @@ type CashRegisterSession = {
   expectedUSD?: number;
   expectedBs?: number;
   differenceUSD?: number;
-  differenceBs?: number;
 };
 
 const CASH_REGISTER_STORAGE_KEY = 'pos_enterprise_cash_register_session';
+
+function normalizeRegister(row: any): CashRegisterSession {
+  return {
+    id: Number(row.id),
+    status: String(row.status || '').toUpperCase() === 'OPEN' ? 'Abierta' : 'Cerrada',
+    openedAt: row.opened_at || row.openedAt || new Date().toISOString(),
+    closedAt: row.closed_at || row.closedAt || undefined,
+    openingUSD: Number(row.opening_usd ?? row.openingUSD ?? 0),
+    openingBs: Number(row.opening_bs ?? row.openingBs ?? 0),
+    countedUSD: row.counted_usd == null ? undefined : Number(row.counted_usd),
+    countedBs: row.counted_bs == null ? undefined : Number(row.counted_bs),
+    expectedUSD: row.expected_usd == null ? undefined : Number(row.expected_usd),
+    expectedBs: row.expected_bs == null ? undefined : Number(row.expected_bs),
+    differenceUSD: row.difference_usd == null ? undefined : Number(row.difference_usd),
+  };
+}
 
 function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
   const [register, setRegister] = useState<CashRegisterSession | null>(null);
@@ -214,98 +230,106 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
   const [countedBs, setCountedBs] = useState('');
   const [expectedUSD, setExpectedUSD] = useState(0);
   const [expectedBs, setExpectedBs] = useState(0);
-  const [isClosing, setIsClosing] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
-  useEffect(() => {
+  const persistRegister = (value: CashRegisterSession | null) => {
+    if (typeof window === 'undefined') return;
+    if (value) localStorage.setItem(CASH_REGISTER_STORAGE_KEY, JSON.stringify(value));
+    else localStorage.removeItem(CASH_REGISTER_STORAGE_KEY);
+    setRegister(value);
+  };
+
+  const refreshRegister = async () => {
     try {
-      const saved = localStorage.getItem(CASH_REGISTER_STORAGE_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as CashRegisterSession;
-      if (parsed?.status === 'Abierta') {
-        setRegister(parsed);
-        setOpeningUSD(String(parsed.openingUSD));
-        setOpeningBs(String(parsed.openingBs));
+      const response = await fetch('/api/cash-register?status=open', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo consultar la caja.');
+      if (data.register) {
+        const normalized = normalizeRegister(data.register);
+        persistRegister(normalized);
+        setOpeningUSD(String(normalized.openingUSD));
+        setOpeningBs(String(normalized.openingBs));
+      } else {
+        persistRegister(null);
       }
     } catch (error) {
-      console.error('Error recuperando la caja:', error);
+      console.error('Error consultando caja:', error);
+      try {
+        const saved = localStorage.getItem(CASH_REGISTER_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.id) setRegister(parsed);
+        }
+      } catch {}
     }
+  };
+
+  useEffect(() => {
+    refreshRegister();
+    const interval = setInterval(refreshRegister, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const isOpened = register?.status === 'Abierta';
 
-  const handleOpenRegister = (e: React.FormEvent) => {
+  const handleOpenRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const usd = Number(openingUSD || 0);
     const bs = Number(openingBs || 0);
+    if (usd < 0 || bs < 0) return alert('El fondo inicial no puede ser negativo.');
+    if (usd === 0 && bs === 0) return alert('Ingrese al menos un fondo inicial en USD o Bs.');
 
-    if (usd < 0 || bs < 0) {
-      alert('El fondo inicial no puede ser negativo.');
-      return;
+    setIsBusy(true);
+    try {
+      const response = await fetch('/api/cash-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ openingUSD: usd, openingBs: bs, username: sessionStorage.getItem('usuario_nombre') || 'admin' })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo abrir la caja.');
+      const normalized = normalizeRegister(data.register);
+      persistRegister(normalized);
+      alert(`Caja #${normalized.id} abierta exitosamente.`);
+    } catch (error: any) {
+      alert(error.message || 'No se pudo abrir la caja.');
+    } finally {
+      setIsBusy(false);
     }
-    if (usd === 0 && bs === 0) {
-      alert('Ingrese al menos un fondo inicial en USD o Bs.');
-      return;
-    }
-
-    const newSession: CashRegisterSession = {
-      id: Date.now(),
-      status: 'Abierta',
-      openedAt: new Date().toISOString(),
-      openingUSD: usd,
-      openingBs: bs,
-    };
-
-    setRegister(newSession);
-    localStorage.setItem(CASH_REGISTER_STORAGE_KEY, JSON.stringify(newSession));
-    alert('¡Caja abierta exitosamente!');
   };
 
   const calculateExpectedCash = async () => {
     if (!register) return { usd: 0, bs: 0 };
-    try {
-      const response = await fetch('/api/sales');
-      if (!response.ok) throw new Error('No se pudieron consultar las ventas.');
-      const sales = await response.json();
-      if (!Array.isArray(sales)) return { usd: register.openingUSD, bs: register.openingBs };
-
-      const openingTime = new Date(register.openedAt).getTime();
-      let cashUSD = register.openingUSD;
-      let cashBs = register.openingBs;
-
-      sales.forEach((sale: any) => {
-        const saleDateValue = sale.created_at || sale.createdAt || sale.date;
-        const saleTime = saleDateValue ? new Date(saleDateValue).getTime() : NaN;
-        if (!Number.isFinite(saleTime) || saleTime < openingTime) return;
-
-        const method = sale.payment_method || sale.paymentMethod || 'Efectivo USD';
-        const totalUSD = Number(sale.total_usd ?? sale.totalUSD ?? 0) || 0;
-        const totalBs = Number(sale.total_bs ?? sale.totalBs ?? 0) || 0;
-
-        if (method === 'Efectivo USD' || method === 'Efectivo') {
-          cashUSD += totalUSD;
-        } else if (method === 'Efectivo Bs') {
-          cashBs += totalBs || (totalUSD * exchangeRate);
-        }
-      });
-      return { usd: cashUSD, bs: cashBs };
-    } catch (error) {
-      console.error('Error calculando efectivo esperado:', error);
-      throw error;
-    }
+    const response = await fetch(`/api/cash-register?id=${register.id}&summary=1`, { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo calcular el efectivo.');
+    return {
+      usd: Number(data.summary?.expectedUSD ?? register.openingUSD),
+      bs: Number(data.summary?.expectedBs ?? register.openingBs),
+    };
   };
 
   const openClosingModal = async () => {
     if (!register) return;
-    setIsClosing(true);
+    setIsBusy(true);
     try {
+      const response = await fetch(`/api/cash-register?id=${register.id}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.register) throw new Error(data.error || 'La caja ya no está disponible.');
+      const serverRegister = normalizeRegister(data.register);
+      if (serverRegister.status !== 'Abierta') {
+        persistRegister(null);
+        throw new Error('La caja ya fue cerrada en el servidor.');
+      }
+      persistRegister(serverRegister);
       const expected = await calculateExpectedCash();
       setExpectedUSD(expected.usd);
       setExpectedBs(expected.bs);
       setClosingModal(true);
-    } catch (error) {
-      alert('No se pudo calcular el efectivo esperado.');
+    } catch (error: any) {
+      alert(error.message || 'No se pudo preparar el cierre.');
     } finally {
-      setIsClosing(false);
+      setIsBusy(false);
     }
   };
 
@@ -313,47 +337,38 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
     if (!register) return;
     const actualUSD = Number(countedUSD || 0);
     const actualBs = Number(countedBs || 0);
+    if (actualUSD < 0 || actualBs < 0) return alert('El efectivo contado no puede ser negativo.');
 
-    if (actualUSD < 0 || actualBs < 0) {
-      alert('El efectivo contado no puede ser negativo.');
-      return;
-    }
-
-    const differenceUSD = actualUSD - expectedUSD;
-    const differenceBs = actualBs - expectedBs;
-    const closedSession: CashRegisterSession = {
-      ...register,
-      status: 'Cerrada',
-      closedAt: new Date().toISOString(),
-      countedUSD: actualUSD,
-      countedBs: actualBs,
-      expectedUSD,
-      expectedBs,
-      differenceUSD,
-      differenceBs,
-    };
-
-    const historyKey = 'pos_enterprise_cash_register_history';
+    setIsBusy(true);
     try {
-      const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-      localStorage.setItem(historyKey, JSON.stringify([closedSession, ...(Array.isArray(history) ? history : [])]));
-    } catch (error) {
-      console.error('Error guardando historial:', error);
+      const response = await fetch('/api/cash-register', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: register.id,
+          countedUSD: actualUSD,
+          countedBs: actualBs,
+          expectedUSD,
+          expectedBs,
+          exchangeRate
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo cerrar la caja.');
+
+      const closedSession = normalizeRegister(data.register);
+      persistRegister(null);
+      setClosingModal(false);
+      setCountedUSD('');
+      setCountedBs('');
+      setOpeningUSD('');
+      setOpeningBs('');
+      alert(`Caja #${closedSession.id} cerrada.\n\nUSD esperado: $${expectedUSD.toFixed(2)}\nUSD contado: $${actualUSD.toFixed(2)}\nDiferencia: $${(actualUSD - expectedUSD).toFixed(2)}\n\nBs. esperado: ${expectedBs.toFixed(2)}\nBs. contado: ${actualBs.toFixed(2)}\nDiferencia: ${(actualBs - expectedBs).toFixed(2)}`);
+    } catch (error: any) {
+      alert(error.message || 'No se pudo cerrar la caja.');
+    } finally {
+      setIsBusy(false);
     }
-
-    localStorage.removeItem(CASH_REGISTER_STORAGE_KEY);
-    setRegister(null);
-    setOpeningUSD('');
-    setOpeningBs('');
-    setClosingModal(false);
-    setCountedUSD('');
-    setCountedBs('');
-
-    alert(
-      `--- CIERRE DE CAJA ---\n\n` +
-      `USD Esperado: $${expectedUSD.toFixed(2)} | Contado: $${actualUSD.toFixed(2)}\n` +
-      `Bs. Esperado: Bs. ${expectedBs.toFixed(2)} | Contado: Bs. ${actualBs.toFixed(2)}`
-    );
   };
 
   return (
@@ -361,7 +376,7 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
       <div className="flex justify-between items-center border-b border-slate-100 pb-3">
         <div>
           <h3 className="text-sm font-black text-slate-900 tracking-tight">🔐 Control de Caja y Turno</h3>
-          {register && <p className="text-xs text-slate-500 font-medium mt-0.5">Abierta: {new Date(register.openedAt).toLocaleTimeString()}</p>}
+          {register && <p className="text-xs text-slate-500 font-medium mt-0.5">Caja #{register.id} · Abierta: {new Date(register.openedAt).toLocaleTimeString()}</p>}
         </div>
         <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isOpened ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' : 'bg-rose-50 text-rose-700 border border-rose-200/80'}`}>
           {isOpened ? '🟢 Abierta' : '🔴 Cerrada'}
@@ -372,21 +387,21 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
         <form onSubmit={handleOpenRegister} className="space-y-3 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
           <div className="text-xs font-bold text-slate-700">Fondo Inicial de Caja</div>
           <div className="grid grid-cols-2 gap-2.5">
-            <input type="number" min="0" step="0.01" required value={openingUSD} onChange={(e) => setOpeningUSD(e.target.value)} placeholder="USD ($)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold shadow-sm" />
-            <input type="number" min="0" step="0.01" required value={openingBs} onChange={(e) => setOpeningBs(e.target.value)} placeholder="Bs. (Bs.)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold shadow-sm" />
+            <input type="number" min="0" step="0.01" required value={openingUSD} onChange={e => setOpeningUSD(e.target.value)} placeholder="USD ($)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold shadow-sm" />
+            <input type="number" min="0" step="0.01" required value={openingBs} onChange={e => setOpeningBs(e.target.value)} placeholder="Bs. (Bs.)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold shadow-sm" />
           </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">
-            Abrir Turno 🔓
+          <button disabled={isBusy} type="submit" className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">
+            {isBusy ? 'Procesando...' : 'Abrir Turno 🔓'}
           </button>
         </form>
       ) : (
         <div className="space-y-3">
           <div className="bg-emerald-50/70 border border-emerald-200/80 p-3.5 rounded-xl text-xs space-y-1 text-emerald-900 shadow-sm">
-            <div className="font-bold">Turno en curso activo</div>
-            <div className="text-slate-600">Inicial: <strong className="font-bold text-slate-900">${register?.openingUSD.toFixed(2)}</strong> / <strong className="font-bold text-slate-900">Bs. {register?.openingBs.toFixed(2)}</strong></div>
+            <div className="font-bold">Turno en curso activo · Caja #{register.id}</div>
+            <div className="text-slate-600">Inicial: <strong className="font-bold text-slate-900">${register.openingUSD.toFixed(2)}</strong> / <strong className="font-bold text-slate-900">Bs. {register.openingBs.toFixed(2)}</strong></div>
           </div>
-          <button disabled={isClosing} onClick={openClosingModal} className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">
-            {isClosing ? 'Calculando...' : 'Conteo Ciego y Cierre 🔒'}
+          <button disabled={isBusy} onClick={openClosingModal} className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">
+            {isBusy ? 'Verificando caja...' : 'Conteo Ciego y Cierre 🔒'}
           </button>
         </div>
       )}
@@ -394,15 +409,15 @@ function CashRegisterModule({ exchangeRate }: { exchangeRate: number }) {
       {closingModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
-            <h3 className="text-base font-black text-slate-900">Conteo Ciego de Cierre</h3>
+            <h3 className="text-base font-black text-slate-900">Conteo Ciego · Caja #{register?.id}</h3>
             <p className="text-xs text-slate-500">Ingrese el efectivo físico total contado en gaveta.</p>
             <div className="space-y-3">
-              <input type="number" min="0" step="0.01" placeholder="Total USD contado ($)" value={countedUSD} onChange={(e) => setCountedUSD(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold shadow-sm" />
-              <input type="number" min="0" step="0.01" placeholder="Total Bs contado (Bs.)" value={countedBs} onChange={(e) => setCountedBs(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold shadow-sm" />
+              <input type="number" min="0" step="0.01" placeholder="Total USD contado ($)" value={countedUSD} onChange={e => setCountedUSD(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold shadow-sm" />
+              <input type="number" min="0" step="0.01" placeholder="Total Bs contado (Bs.)" value={countedBs} onChange={e => setCountedBs(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold shadow-sm" />
             </div>
             <div className="flex gap-2 pt-2">
-              <button onClick={() => setClosingModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-2.5 rounded-xl text-xs font-bold text-slate-700 transition">Cancelar</button>
-              <button onClick={handleCloseRegister} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-bold shadow-md">Confirmar Cierre ✓</button>
+              <button disabled={isBusy} onClick={() => setClosingModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-2.5 rounded-xl text-xs font-bold text-slate-700 transition">Cancelar</button>
+              <button disabled={isBusy} onClick={handleCloseRegister} className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white py-2.5 rounded-xl text-xs font-bold shadow-md">{isBusy ? 'Cerrando...' : 'Confirmar Cierre ✓'}</button>
             </div>
           </div>
         </div>
@@ -705,6 +720,25 @@ export default function DashboardPOS() {
       return;
     }
 
+    // La caja se valida en el servidor justo antes de registrar la venta.
+    let cashRegisterId: number | null = null;
+    try {
+      const saved = localStorage.getItem(CASH_REGISTER_STORAGE_KEY);
+      if (saved) cashRegisterId = Number(JSON.parse(saved)?.id || 0) || null;
+    } catch {}
+
+    if (!cashRegisterId) {
+      const openResponse = await fetch('/api/cash-register?status=open', { cache: 'no-store' });
+      const openData = await openResponse.json();
+      if (!openResponse.ok || !openData.register) {
+        alert('No hay una caja abierta. Abra una caja antes de generar la venta.');
+        setIsCheckoutModalOpen(false);
+        return;
+      }
+      cashRegisterId = Number(openData.register.id);
+      localStorage.setItem(CASH_REGISTER_STORAGE_KEY, JSON.stringify(normalizeRegister(openData.register)));
+    }
+
     const salePayload = {
       items: cart,
       subtotalUSD,
@@ -715,7 +749,9 @@ export default function DashboardPOS() {
       paymentMethod,
       changeUSD,
       clientName: clientName || 'Cliente Genérico',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      cashRegisterId,
+      username: sessionStorage.getItem('usuario_nombre') || currentUsername || 'admin'
     };
 
     try {
@@ -726,72 +762,80 @@ export default function DashboardPOS() {
       });
       const data = await res.json();
 
-      if (data.success || res.ok) {
-        const newSaleRecord: SaleRecord = {
-          id: data.saleId || Date.now(),
-          date: new Date().toLocaleString(),
-          items: [...cart],
-          subtotalUSD,
-          ivaUSD,
-          totalUSD,
-          totalBs,
-          exchangeRate,
-          paymentMethod,
-          changeUSD,
-          clientName: clientName || 'Cliente Genérico',
-          created_at: new Date().toISOString()
-        };
-
-        setSalesHistory(prev => [newSaleRecord, ...prev]);
-        setLastPrintedSale(newSaleRecord);
-
-        if (paymentMethod === 'Crédito / Fiado') {
-          const newCredit: CreditAccount = {
-            id: Date.now(),
-            clientName: clientName || 'Cliente Genérico',
-            clientPhone: clientPhone || 'N/A',
-            clientDocument: clientDocument || 'N/A',
-            totalDebtUSD: totalUSD,
-            totalDebtBs: totalBs,
-            date: new Date().toLocaleDateString(),
-            status: 'Pendiente',
-            saleId: newSaleRecord.id
-          };
-          setCredits(prev => [newCredit, ...prev]);
+      if (!res.ok || !data.success) {
+        if (res.status === 409 || data.code === 'REGISTER_CLOSED' || data.code === 'NO_OPEN_REGISTER') {
+          localStorage.removeItem(CASH_REGISTER_STORAGE_KEY);
+          alert(data.error || 'La caja ya no está abierta. Abra una nueva caja antes de vender.');
+          setIsCheckoutModalOpen(false);
+          return;
         }
-
-        for (const item of cart) {
-          const prod = products.find(p => p.id === item.id);
-          if (prod) {
-            await fetch(`/api/products/${prod.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ...prod, stock: prod.stock - item.quantity })
-            }).catch(err => console.error(err));
-          }
-        }
-
-        const prodRes = await fetch('/api/products');
-        const prodData = await prodRes.json();
-        if (Array.isArray(prodData)) setProducts(prodData);
-
-        setSuccessModalData({
-          isOpen: true,
-          changeUSD,
-          changeBs,
-          isCredit: paymentMethod === 'Crédito / Fiado',
-          clientName: clientName || undefined
-        });
-
-        setCart([]);
-        setIsCheckoutModalOpen(false);
-        setCashGivenUSD('');
-        setClientName('');
-        setClientPhone('');
-        setClientDocument('');
-      } else {
-        alert('Error: ' + (data.error || 'Desconocido'));
+        alert('Error: ' + (data.error || 'No se pudo registrar la venta.'));
+        return;
       }
+
+      const newSaleRecord: SaleRecord = {
+        id: data.saleId,
+        date: new Date().toLocaleString(),
+        items: [...cart],
+        subtotalUSD,
+        ivaUSD,
+        totalUSD,
+        totalBs,
+        exchangeRate,
+        paymentMethod,
+        changeUSD,
+        clientName: clientName || 'Cliente Genérico',
+        created_at: data.sale?.created_at || new Date().toISOString(),
+        cashRegisterId: Number(data.cashRegisterId || cashRegisterId)
+      };
+
+      setSalesHistory(prev => [newSaleRecord, ...prev]);
+      setLastPrintedSale(newSaleRecord);
+
+      if (paymentMethod === 'Crédito / Fiado') {
+        const newCredit: CreditAccount = {
+          id: Date.now(),
+          clientName: clientName || 'Cliente Genérico',
+          clientPhone: clientPhone || 'N/A',
+          clientDocument: clientDocument || 'N/A',
+          totalDebtUSD: totalUSD,
+          totalDebtBs: totalBs,
+          date: new Date().toLocaleDateString(),
+          status: 'Pendiente',
+          saleId: newSaleRecord.id
+        };
+        setCredits(prev => [newCredit, ...prev]);
+      }
+
+      for (const item of cart) {
+        const prod = products.find(p => p.id === item.id);
+        if (prod) {
+          await fetch(`/api/products/${prod.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...prod, stock: prod.stock - item.quantity })
+          }).catch(err => console.error(err));
+        }
+      }
+
+      const prodRes = await fetch('/api/products');
+      const prodData = await prodRes.json();
+      if (Array.isArray(prodData)) setProducts(prodData);
+
+      setSuccessModalData({
+        isOpen: true,
+        changeUSD,
+        changeBs,
+        isCredit: paymentMethod === 'Crédito / Fiado',
+        clientName: clientName || undefined
+      });
+
+      setCart([]);
+      setIsCheckoutModalOpen(false);
+      setCashGivenUSD('');
+      setClientName('');
+      setClientPhone('');
+      setClientDocument('');
     } catch (err) {
       console.error(err);
       alert('Error procesando la venta.');
