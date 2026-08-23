@@ -884,15 +884,15 @@ export default function DashboardPOS() {
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex font-sans">
-      {/* Sidebar Corporativo */}
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans">
+      {/* Sidebar Corporativo adaptado al estilo POS Enterprise Venezuela */}
       <aside className="w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between p-5 hidden md:flex sticky top-0 h-screen z-40 shadow-xs">
         <div className="space-y-6">
           <div className="flex items-center gap-3 px-2">
-            <div className="bg-blue-600 text-white p-2.5 rounded-xl font-black text-xs shadow-sm">⚡ POS</div>
+            <div className="bg-blue-600 text-white p-2.5 rounded-xl font-black text-xs shadow-sm">⚡</div>
             <div>
-              <h1 className="text-xs font-black text-slate-900 uppercase tracking-wider">Enterprise</h1>
-              <p className="text-[10px] text-slate-400 font-semibold">Commercial Suite</p>
+              <h1 className="text-xs font-black text-slate-900 uppercase tracking-wider">POS Enterprise</h1>
+              <p className="text-[10px] text-blue-600 font-bold">Venezuela</p>
             </div>
           </div>
 
@@ -930,7 +930,7 @@ export default function DashboardPOS() {
           </nav>
         </div>
 
-        <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl space-y-2">
+        <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl space-y-2 shadow-2xs">
           <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tasa BCV Activa</div>
           <div className="text-xs font-black text-blue-600">Bs. {exchangeRate.toFixed(2)} / $1</div>
         </div>
@@ -942,7 +942,7 @@ export default function DashboardPOS() {
         <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-30 px-6 py-3.5 flex justify-between items-center shadow-2xs">
           <div className="flex items-center gap-3">
             <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider hidden sm:inline">Módulo Actual:</span>
-            <span className="text-xs font-black text-blue-600 uppercase bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
+            <span className="text-xs font-black text-blue-600 uppercase bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 shadow-2xs">
               {activeTab === 'pos' && 'Punto de Venta'}
               {activeTab === 'inventory' && 'Control de Inventario'}
               {activeTab === 'reports' && 'Analítica Comercial'}
@@ -952,14 +952,20 @@ export default function DashboardPOS() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-2xl shadow-2xs">
-            <div className="text-right">
-              <div className="text-xs font-bold text-slate-900">{currentUserObj?.name || currentUsername}</div>
-              <div className="text-[10px] text-blue-600 font-semibold">{currentRoleObj?.name || 'Operador'}</div>
+          <div className="flex items-center gap-3">
+            <button className="bg-white border border-slate-200/90 hover:bg-slate-50 text-slate-700 font-bold px-3.5 py-1.5 rounded-full text-xs transition shadow-2xs flex items-center gap-1.5">
+              <span>🌙</span> Modo Oscuro
+            </button>
+
+            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-2xl shadow-2xs">
+              <div className="text-right">
+                <div className="text-xs font-bold text-slate-900">{currentUserObj?.name || currentUsername}</div>
+                <div className="text-[10px] text-blue-600 font-semibold">{currentRoleObj?.name || 'Operador'}</div>
+              </div>
+              <select value={currentUsername} onChange={(e) => setCurrentUsername(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none shadow-2xs">
+                {usersList.map((u: any) => (<option key={u.id || u.username} value={u.username}>{u.name || u.username}</option>))}
+              </select>
             </div>
-            <select value={currentUsername} onChange={(e) => setCurrentUsername(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none">
-              {usersList.map((u: any) => (<option key={u.id || u.username} value={u.username}>{u.name || u.username}</option>))}
-            </select>
           </div>
         </header>
 
@@ -1013,7 +1019,7 @@ export default function DashboardPOS() {
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${selectedCategory === cat ? 'bg-blue-600 text-white shadow-xs' : 'bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50'}`}
+                        className={`px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition shadow-2xs ${selectedCategory === cat ? 'bg-blue-600 text-white shadow-xs' : 'bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50'}`}
                       >
                         {cat}
                       </button>
@@ -1072,7 +1078,7 @@ export default function DashboardPOS() {
                       </div>
                     ) : (
                       cart.map(item => (
-                        <div key={item.id} className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3 flex justify-between items-center gap-2.5">
+                        <div key={item.id} className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3 flex justify-between items-center gap-2.5 shadow-2xs">
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-xs text-slate-900 truncate">{item.name}</div>
                             <div className="text-[10px] text-slate-500 font-medium">${item.price.toFixed(2)} c/u</div>
@@ -1111,7 +1117,7 @@ export default function DashboardPOS() {
                     <button
                       disabled={cart.length === 0}
                       onClick={() => setIsCheckoutModalOpen(true)}
-                      className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs transition shadow-sm mt-1"
+                      className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs transition shadow-xs mt-1"
                     >
                       Proceder al Pago 💳
                     </button>
@@ -1153,7 +1159,7 @@ export default function DashboardPOS() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 pt-1">
-                      <input type="checkbox" id="taxableCheck" checked={newTaxable} onChange={e => setNewTaxable(e.target.checked)} className="rounded text-blue-600 w-4 h-4" />
+                      <input type="checkbox" id="taxableCheck" checked={newTaxable} onChange={e => setNewTaxable(e.target.checked)} className="rounded text-blue-600 w-4 h-4 shadow-2xs" />
                       <label htmlFor="taxableCheck" className="text-xs text-slate-800 font-semibold">Aplica IVA (16%)</label>
                     </div>
                     <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-xs shadow-xs mt-2 transition">Guardar Producto 💾</button>
@@ -1164,8 +1170,8 @@ export default function DashboardPOS() {
                   <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                     <h3 className="font-black text-slate-900 text-sm">📦 Listado de Inventario</h3>
                     <div className="flex gap-1.5">
-                      <button onClick={() => setInventoryFilterMode('all')} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${inventoryFilterMode === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}>Todos</button>
-                      <button onClick={() => setInventoryFilterMode('low')} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${inventoryFilterMode === 'low' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700'}`}>Stock Bajo</button>
+                      <button onClick={() => setInventoryFilterMode('all')} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs ${inventoryFilterMode === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}>Todos</button>
+                      <button onClick={() => setInventoryFilterMode('low')} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs ${inventoryFilterMode === 'low' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700'}`}>Stock Bajo</button>
                     </div>
                   </div>
 
@@ -1194,7 +1200,7 @@ export default function DashboardPOS() {
                             <td className="p-3 text-right">
                               <button
                                 onClick={() => { setSelectedProductForRestock(p); setIsRestockModalOpen(true); }}
-                                className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold px-3 py-1.5 rounded-xl text-[10px] transition"
+                                className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold px-3 py-1.5 rounded-xl text-[10px] transition shadow-2xs"
                               >
                                 Reponer ➕
                               </button>
@@ -1234,7 +1240,7 @@ export default function DashboardPOS() {
                     <button
                       key={period}
                       onClick={() => setReportFilterPeriod(period)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition ${reportFilterPeriod === period ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700'}`}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition shadow-2xs ${reportFilterPeriod === period ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700'}`}
                     >
                       {period === 'all' ? 'Histórico' : period === 'today' ? 'Hoy' : period === 'week' ? 'Semana' : 'Mes'}
                     </button>
@@ -1296,7 +1302,7 @@ export default function DashboardPOS() {
                             <div className="text-[10px] text-slate-500">{sale.date}</div>
                           </td>
                           <td className="p-3 font-bold text-slate-800">{sale.clientName || 'Cliente Genérico'}</td>
-                          <td className="p-3"><span className="bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-lg text-[10px]">{sale.paymentMethod}</span></td>
+                          <td className="p-3"><span className="bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-lg text-[10px]"> {sale.paymentMethod}</span></td>
                           <td className="p-3 font-black text-slate-900">${sale.totalUSD.toFixed(2)}</td>
                           <td className="p-3 text-slate-600">Bs. {sale.totalBs.toFixed(2)}</td>
                         </tr>
@@ -1423,7 +1429,7 @@ export default function DashboardPOS() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
             <h3 className="text-base font-black text-slate-900">💳 Procesar Pago</h3>
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/90 space-y-1">
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/90 space-y-1 shadow-2xs">
               <div className="flex justify-between text-xs font-bold text-slate-700"><span>Total a Pagar:</span><span className="font-black text-slate-900">${totalUSD.toFixed(2)} / Bs. {totalBs.toFixed(2)}</span></div>
             </div>
 
