@@ -43,8 +43,8 @@ export async function POST(request: Request) {
       cash_register_id
     ]);  
 
-    // Obtener el ID de la última venta insertada de forma segura
-    const lastSale = db.prepare("SELECT id FROM sales ORDER BY id DESC LIMIT 1;").get() as { id: number } | undefined;
+    // Obtener el ID de la última venta insertada de forma segura mediante conversión previa a unknown
+    const lastSale = db.prepare("SELECT id FROM sales ORDER BY id DESC LIMIT 1;").get() as unknown as { id: number } | undefined;
     const saleId = lastSale ? lastSale.id : 1;
 
     // 2. Insertar los ítems y descontar stock de inventario
