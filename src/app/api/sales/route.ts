@@ -26,11 +26,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Insertar la venta principal vinculada a la caja abierta
+    // 1. Insertar la venta principal vinculada a la caja abierta usando un arreglo de parámetros
     db.prepare(
       `INSERT INTO sales (date, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName, cash_register_id) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
+    ).run([
       date || new Date().toLocaleString(), 
       subtotalUSD || 0, 
       ivaUSD || 0, 
@@ -41,9 +41,9 @@ export async function POST(request: Request) {
       changeUSD || 0, 
       clientName || 'Cliente Genérico',
       cash_register_id
-    );  
+    ]);  
 
-    // Obtener el ID de la última venta insertada de forma segura mediante prepare y get
+    // Obtener el ID de la última venta insertada de forma segura
     const lastSale = db.prepare("SELECT id FROM sales ORDER BY id DESC LIMIT 1;").get() as { id: number } | undefined;
     const saleId = lastSale ? lastSale.id : 1;
 
@@ -52,11 +52,11 @@ export async function POST(request: Request) {
       for (const item of items) {  
         db.prepare(
           `INSERT INTO sale_items (sale_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`
-        ).run(saleId, item.id || item.product_id, item.quantity, item.price);  
+        ).run([saleId, item.id || item.product_id, item.quantity, item.price]);  
 
         db.prepare(
           `UPDATE products SET stock = stock - ? WHERE id = ?`
-        ).run(item.quantity, item.id || item.product_id);  
+        ).run([item.quantity, item.id || item.product_id]);  
       }  
     }  
 
