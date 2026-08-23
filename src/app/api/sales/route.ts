@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Insertar la venta principal vinculada a la caja abierta
-    const saleResult = await db.run(
+    db.run(
       `INSERT INTO sales (date, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName, cash_register_id) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -44,17 +44,19 @@ export async function POST(request: Request) {
       ]
     );  
 
-    const saleId = Number(saleResult.lastInsertRowid);  
+    // Obtener el ID de la última venta insertada de forma segura mediante consulta SQL
+    const lastSale = db.all("SELECT id FROM sales ORDER BY id DESC LIMIT 1;") as Array<{ id: number }>;
+    const saleId = lastSale && lastSale.length > 0 ? lastSale[0].id : 1;
 
     // 2. Insertar los ítems y descontar stock de inventario
     if (items && Array.isArray(items)) {  
       for (const item of items) {  
-        await db.run(
+        db.run(
           `INSERT INTO sale_items (sale_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`,
           [saleId, item.id || item.product_id, item.quantity, item.price]
         );  
 
-        await db.run(
+        db.run(
           `UPDATE products SET stock = stock - ? WHERE id = ?`,
           [item.quantity, item.id || item.product_id]
         );  
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
 
 export async function GET() {  
   try {  
-    const result = await db.all("SELECT * FROM sales ORDER BY id DESC");  
+    const result = db.all("SELECT * FROM sales ORDER BY id DESC");  
     return NextResponse.json(result);  
   } catch (error) {  
     return NextResponse.json({ error: 'Error al obtener el historial de ventas' }, { status: 500 });  
