@@ -70,12 +70,8 @@ export async function POST(request: Request) {
     if (action === 'open') {
       const usd = Number(openingUSD) || 0;
       const ves = Number(openingBs) || 0;
-      const cleanUserId =
-        userId !== undefined &&
-        userId !== null &&
-        userId !== ''
-          ? Number(userId)
-          : null;
+      // Blindaje: Si no viene userId o es inválido, usar 1 por defecto para evitar errores de base de datos
+      const cleanUserId = Number(userId) || 1;
 
       // Buscar caja abierta
       const existing = await runQuery(async (db) => {
@@ -100,7 +96,7 @@ export async function POST(request: Request) {
         });
       }
 
-      // INSERTAR CAJA (Parámetros separados sin corchetes)
+      // INSERTAR CAJA (Con usuario por defecto seguro)
       await runQuery(async (db) => {
         return await db.sql(
           `
@@ -174,7 +170,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // ACTUALIZAR CAJA (Parámetros separados sin corchetes)
+      // ACTUALIZAR CAJA
       await runQuery(async (db) => {
         return await db.sql(
           `
