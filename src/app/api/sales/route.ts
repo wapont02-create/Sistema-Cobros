@@ -41,13 +41,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Insertar la venta principal vinculada a la caja abierta
+    // 1. Insertar la venta principal usando created_at (como exige la tabla sales)
     const saleResult: any = await runQuery(async (db) => {
       return await db.sql(
-        `INSERT INTO sales (date, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName, cash_register_id)  
+        `INSERT INTO sales (created_at, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName, cash_register_id)  
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [  
-          date || new Date().toLocaleString(),  
+          date || new Date().toISOString(),  
           subtotalUSD || 0,  
           ivaUSD || 0,  
           totalUSD,  
