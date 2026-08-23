@@ -6,14 +6,10 @@ export async function POST(request: Request) {
     const body = await request.json();  
     let {  
       date,  
-      subtotalUSD,  
-      ivaUSD,  
       totalUSD,  
       totalBs,  
       exchangeRate,  
       paymentMethod,  
-      changeUSD,  
-      clientName,  
       items,
       cash_register_id  
     } = body;  
@@ -41,22 +37,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Insertar la venta principal usando created_at (como exige la tabla sales)
+    // 1. Insertar la venta principal usando exactamente las columnas reales de la tabla sales
     const saleResult: any = await runQuery(async (db) => {
       return await db.sql(
-        `INSERT INTO sales (created_at, subtotalUSD, ivaUSD, totalUSD, totalBs, exchangeRate, paymentMethod, changeUSD, clientName, cash_register_id)  
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sales (total_usd, payment_method, cash_register_id, total_ves, exchange_rate, created_at)  
+         VALUES (?, ?, ?, ?, ?, ?)`,
         [  
-          date || new Date().toISOString(),  
-          subtotalUSD || 0,  
-          ivaUSD || 0,  
-          totalUSD,  
-          totalBs,  
-          exchangeRate,  
-          paymentMethod,  
-          changeUSD || 0,  
-          clientName || 'Cliente Genérico',
-          cash_register_id  
+          totalUSD || 0,  
+          paymentMethod || 'Efectivo USD',  
+          cash_register_id,  
+          totalBs || 0,  
+          exchangeRate || 1,  
+          date || new Date().toISOString()  
         ]  
       );
     });  
