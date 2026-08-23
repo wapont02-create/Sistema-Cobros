@@ -25,10 +25,6 @@ export async function GET() {
       ? result
       : result?.rows || [];
 
-    console.log('========== CAJAS ==========');
-    console.log(rows);
-    console.log('===========================');
-
     const openRegister = rows.find(
       (row: any) =>
         String(row.status).toLowerCase() === 'open'
@@ -47,9 +43,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          'Error consultando las cajas',
+        error: error?.message || 'Error consultando las cajas',
       },
       { status: 500 }
     );
@@ -59,9 +53,6 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
-    console.log('========== POST /api/cash ==========');
-    console.log('BODY:', body);
 
     const {
       action,
@@ -109,8 +100,8 @@ export async function POST(request: Request) {
         });
       }
 
-      // INSERTAR CAJA
-      const insertResult = await runQuery(async (db) => {
+      // INSERTAR CAJA (Parámetros separados sin corchetes)
+      await runQuery(async (db) => {
         return await db.sql(
           `
           INSERT INTO cash_registers
@@ -122,18 +113,11 @@ export async function POST(request: Request) {
           )
           VALUES (?, ?, ?, 'open');
           `,
-          [
-            cleanUserId,
-            usd,
-            ves,
-          ]
+          cleanUserId,
+          usd,
+          ves
         );
       });
-
-      console.log(
-        'RESULTADO INSERT CAJA:',
-        insertResult
-      );
 
       // VERIFICAR INMEDIATAMENTE
       const verification = await runQuery(async (db) => {
@@ -155,20 +139,11 @@ export async function POST(request: Request) {
         ? verification
         : verification?.rows || [];
 
-      console.log(
-        '========== CAJA DESPUÉS DEL INSERT =========='
-      );
-      console.log(rows);
-      console.log(
-        '=============================================='
-      );
-
       if (rows.length === 0) {
         return NextResponse.json(
           {
             success: false,
-            error:
-              'El INSERT se ejecutó pero la caja no aparece en la base de datos.',
+            error: 'El INSERT se ejecutó pero la caja no aparece en la base de datos.',
           },
           { status: 500 }
         );
@@ -186,10 +161,7 @@ export async function POST(request: Request) {
     // ==========================================
 
     if (action === 'close') {
-      const {
-        registerId,
-      } = body;
-
+      const { registerId } = body;
       const id = Number(registerId);
 
       if (!id) {
@@ -202,6 +174,7 @@ export async function POST(request: Request) {
         );
       }
 
+      // ACTUALIZAR CAJA (Parámetros separados sin corchetes)
       await runQuery(async (db) => {
         return await db.sql(
           `
@@ -214,11 +187,9 @@ export async function POST(request: Request) {
           WHERE id = ?
             AND status = 'open';
           `,
-          [
-            Number(countedUSD) || 0,
-            Number(countedBs) || 0,
-            id,
-          ]
+          Number(countedUSD) || 0,
+          Number(countedBs) || 0,
+          id
         );
       });
 
@@ -237,17 +208,13 @@ export async function POST(request: Request) {
     );
 
   } catch (error: any) {
-    console.error(
-      '========== ERROR /api/cash =========='
-    );
+    console.error('========== ERROR /api/cash ==========');
     console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          'Error procesando la caja.',
+        error: error?.message || 'Error procesando la caja.',
       },
       { status: 500 }
     );
