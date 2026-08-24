@@ -13,6 +13,7 @@ type Product = {
   category: string; 
   taxable: boolean;  
   stock: number;     
+  image?: string;    // <--- Modificación: campo de imagen opcional
 };
 
 type CartItem = Product & { quantity: number };
@@ -273,7 +274,7 @@ function CustomersDirectoryModule() {
 
 export default function DashboardPOS() {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'welcome' | 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles'>('welcome'); // Arrancamos en la pantalla de bienvenida por defecto
+  const [activeTab, setActiveTab] = useState<'welcome' | 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles'>('welcome'); 
   
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
@@ -326,6 +327,7 @@ export default function DashboardPOS() {
   const [newCategory, setNewCategory] = useState('Comida');
   const [newTaxable, setNewTaxable] = useState(true);
   const [newStock, setNewStock] = useState('');
+  const [newImage, setNewImage] = useState(''); // <--- Modificación: estado para la URL de la imagen
 
   const [lastPrintedSale, setLastPrintedSale] = useState<any>(null);
   const [successModalData, setSuccessModalData] = useState<{ isOpen: boolean; changeUSD: number; changeBs: number; isCredit: boolean; clientName?: string } | null>(null);
@@ -343,7 +345,7 @@ export default function DashboardPOS() {
         } else {
           setActiveRegisterId(null);
           if (onOpenPOS) {
-            setShowOpenCashModal(true); // Solo abre el modal si intentó entrar al POS
+            setShowOpenCashModal(true); 
           }
         }
       }
@@ -412,10 +414,8 @@ export default function DashboardPOS() {
   const currentRoleObj = rolesList.find((r: any) => String(r.id || '').toLowerCase() === String(currentUserObj?.role || '').toLowerCase() || String(r.name || '').toLowerCase() === String(currentUserObj?.role || '').toLowerCase()) || rolesList[0];
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
-  // Manejador inteligente al cambiar de pestaña
   const handleTabChange = async (tab: 'welcome' | 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles') => {
     if (tab === 'pos') {
-      // Verificamos estatus actual en backend antes de dejar entrar a POS
       try {
         const res = await fetch('/api/cash');
         const data = await res.json();
@@ -426,14 +426,14 @@ export default function DashboardPOS() {
         } else {
           setIsCashOpen(false);
           setActiveRegisterId(null);
-          setShowOpenCashModal(true); // ¡Aquí se pide abrir caja solo al intentar entrar al POS!
+          setShowOpenCashModal(true); 
         }
       } catch (err) {
         console.error(err);
         setShowOpenCashModal(true);
       }
     } else {
-      setActiveTab(tab); // Otras pestañas abren libremente
+      setActiveTab(tab); 
     }
   };
 
@@ -461,7 +461,7 @@ export default function DashboardPOS() {
         setOpeningBs('');
         setIsCashOpen(true);
         if (data.register) setActiveRegisterId(data.register.id);
-        setActiveTab('pos'); // Entra directo al POS una vez abierta
+        setActiveTab('pos'); 
       } else {
         alert('Error: ' + data.error);
       }
@@ -496,7 +496,7 @@ export default function DashboardPOS() {
         setCountedBs('');
         setIsCashOpen(false);
         setActiveRegisterId(null);
-        setActiveTab('welcome'); // Al cerrar caja, lo devolvemos a la pantalla de bienvenida
+        setActiveTab('welcome'); 
       } else {
         alert('Error: ' + data.error);
       }
@@ -681,13 +681,14 @@ export default function DashboardPOS() {
           price: parseFloat(newPrice),
           category: newCategory,
           taxable: newTaxable,
-          stock: parseInt(newStock)
+          stock: parseInt(newStock),
+          image: newImage // <--- Modificación: enviando la URL de la imagen
         })
       });
       const data = await res.json();
       if (data.success || res.ok) {
         alert('¡Producto creado exitosamente!');
-        setNewName(''); setNewCostPrice(''); setNewPrice(''); setNewStock('');
+        setNewName(''); setNewCostPrice(''); setNewPrice(''); setNewStock(''); setNewImage(''); // <--- Limpieza del estado de imagen
         const prodRes = await fetch('/api/products');
         const prodData = await prodRes.json();
         if (Array.isArray(prodData)) setProducts(prodData);
@@ -923,6 +924,12 @@ export default function DashboardPOS() {
                     className={`bg-white border rounded-3xl p-4 flex flex-col justify-between cursor-pointer transition shadow-xs hover:shadow-md ${product.stock <= 0 ? 'opacity-50 border-rose-200 bg-rose-50/20' : 'border-slate-200/80 hover:border-blue-400 hover:-translate-y-0.5'}`}
                   >
                     <div>
+                      {/* Modificación: Renderizado de la imagen si existe */}
+                      {product.image ? (
+                        <div className="w-full h-24 mb-2.5 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
+                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : null}
                       <div className="flex justify-between items-start gap-1">
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-lg">{product.category}</span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${product.stock > 5 ? 'bg-emerald-50 text-emerald-700' : product.stock > 0 ? 'bg-amber-50 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
@@ -1025,6 +1032,11 @@ export default function DashboardPOS() {
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Nombre *</label>
                     <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ej. Hamburguesa Doble" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs" />
                   </div>
+                  {/* Modificación: Campo de entrada para la URL de la imagen */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">URL de la Imagen</label>
+                    <input type="text" value={newImage} onChange={e => setNewImage(e.target.value)} placeholder="https://ejemplo.com/imagen.jpg" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs" />
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Costo ($)</label>
@@ -1076,7 +1088,10 @@ export default function DashboardPOS() {
                     <tbody className="divide-y divide-slate-100">
                       {products.filter(p => inventoryFilterMode === 'all' || p.stock <= 5).map(p => (
                         <tr key={p.id} className="hover:bg-slate-50/60 transition">
-                          <td className="p-3 font-bold text-slate-800">{p.name}</td>
+                          <td className="p-3 font-bold text-slate-800 flex items-center gap-2">
+                            {p.image && <img src={p.image} alt="" className="w-8 h-8 rounded-lg object-cover" />}
+                            <span>{p.name}</span>
+                          </td>
                           <td className="p-3 text-slate-500">{p.category}</td>
                           <td className="p-3 font-extrabold text-slate-900">${p.price.toFixed(2)}</td>
                           <td className="p-3">
@@ -1309,7 +1324,7 @@ export default function DashboardPOS() {
         {activeTab === 'roles' && <RolesManagerModule />}
       </main>
 
-      {/* MODAL DE APERTURA DE CAJA (Se activa SOLO al intentar hacer clic en la pestaña POS si la caja está cerrada) */}
+      {/* MODAL DE APERTURA DE CAJA */}
       {showOpenCashModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
