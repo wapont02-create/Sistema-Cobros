@@ -4,7 +4,7 @@ import { runQuery } from '../../../db/client'; // Ajusta la ruta si es necesario
 export async function GET() {
   try {
     const products = await runQuery(async (db) => {
-      return await db.sql(`SELECT id, name, barcode, price_usd, stock, taxable, category, cost_price FROM products`);
+      return await db.sql(`SELECT id, name, barcode, price_usd, stock, taxable, category, cost_price, image_url FROM products`);
     });
 
     const formattedProducts = Array.isArray(products) ? products.map((p: any) => ({
@@ -15,7 +15,8 @@ export async function GET() {
       stock: Number(p.stock || 0),
       taxable: p.taxable !== undefined ? Boolean(p.taxable) : true,
       category: p.category || 'General',
-      costPrice: Number(p.cost_price || 0)
+      costPrice: Number(p.cost_price || 0),
+      image_url: p.image_url || '' // 👈 Campo de imagen integrado
     })) : [];
 
     return NextResponse.json(formattedProducts);
@@ -28,7 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, price, stock, taxable, barcode, category, costPrice } = body;
+    const { name, price, stock, taxable, barcode, category, costPrice, image_url } = body;
 
     if (!name || price === undefined || price === null) {
       return NextResponse.json({ success: false, error: 'Nombre y precio son obligatorios' }, { status: 400 });
@@ -39,11 +40,12 @@ export async function POST(request: Request) {
     const finalTaxable = taxable ? 1 : 0;
     const finalCategory = category || 'General';
     const finalCost = costPrice !== undefined ? Number(costPrice) : 0;
+    const finalImageUrl = image_url || ''; // 👈 Valor por defecto si no se ingresa enlace
 
     await runQuery(async (db) => {
       return await db.sql(`
-        INSERT INTO products (name, barcode, price_usd, stock, taxable, category, cost_price) 
-        VALUES ('${name}', '${generatedBarcode}', ${price}, ${finalStock}, ${finalTaxable}, '${finalCategory}', ${finalCost})
+        INSERT INTO products (name, barcode, price_usd, stock, taxable, category, cost_price, image_url) 
+        VALUES ('${name}', '${generatedBarcode}', ${price}, ${finalStock}, ${finalTaxable}, '${finalCategory}', ${finalCost}, '${finalImageUrl}')
       `);
     });
 
