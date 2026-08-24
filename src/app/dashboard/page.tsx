@@ -273,7 +273,7 @@ function CustomersDirectoryModule() {
 
 export default function DashboardPOS() {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles'>('inventory'); // Arrancamos en inventario o reporte por defecto para administradores
+  const [activeTab, setActiveTab] = useState<'welcome' | 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles'>('welcome'); // Arrancamos en la pantalla de bienvenida por defecto
   
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
@@ -413,7 +413,7 @@ export default function DashboardPOS() {
   const userPermissions = currentRoleObj ? currentRoleObj.permissions : [];
 
   // Manejador inteligente al cambiar de pestaña
-  const handleTabChange = async (tab: 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles') => {
+  const handleTabChange = async (tab: 'welcome' | 'pos' | 'inventory' | 'reports' | 'accounts' | 'customers' | 'roles') => {
     if (tab === 'pos') {
       // Verificamos estatus actual en backend antes de dejar entrar a POS
       try {
@@ -433,7 +433,7 @@ export default function DashboardPOS() {
         setShowOpenCashModal(true);
       }
     } else {
-      setActiveTab(tab); // Otras pestañas (Inventario, Reportes, Roles) abren libremente
+      setActiveTab(tab); // Otras pestañas abren libremente
     }
   };
 
@@ -496,7 +496,7 @@ export default function DashboardPOS() {
         setCountedBs('');
         setIsCashOpen(false);
         setActiveRegisterId(null);
-        setActiveTab('inventory'); // Al cerrar caja, lo devolvemos al panel de inventario/administración
+        setActiveTab('welcome'); // Al cerrar caja, lo devolvemos a la pantalla de bienvenida
       } else {
         alert('Error: ' + data.error);
       }
@@ -758,7 +758,7 @@ export default function DashboardPOS() {
       {/* Header / Navbar Enterprise */}
       <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 px-6 py-3 flex flex-wrap justify-between items-center gap-4 shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="bg-blue-600 text-white p-2 rounded-2xl font-black text-sm shadow-sm">⚡ POS</div>
+          <div className="bg-blue-600 text-white p-2 rounded-2xl font-black text-sm shadow-sm cursor-pointer" onClick={() => handleTabChange('welcome')}>⚡ POS</div>
           <div>
             <h1 className="text-sm font-black text-slate-900 tracking-tight">Enterprise Suite</h1>
             <p className="text-[10px] text-slate-400 font-semibold">Sistema de Gestión Comercial</p>
@@ -768,8 +768,11 @@ export default function DashboardPOS() {
           </div>
         </div>
 
-        {/* Navigation Tabs (Con control inteligente de apertura de caja al entrar a POS) */}
+        {/* Navigation Tabs */}
         <nav className="flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-2xl text-xs font-bold border border-slate-200/50">
+          <button onClick={() => handleTabChange('welcome')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'welcome' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            🏠 Inicio
+          </button>
           {userPermissions.includes('view_pos') && (
             <button onClick={() => handleTabChange('pos')} className={`px-3.5 py-1.5 rounded-xl transition ${activeTab === 'pos' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
               🛒 POS Caja
@@ -828,35 +831,63 @@ export default function DashboardPOS() {
       {/* Main Container */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
         
-        {/* KPI Header Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ventas Totales Registradas</p>
-              <h3 className="text-xl font-black text-slate-900 mt-1">${totalSalesTodayUSD.toFixed(2)}</h3>
-              <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Bs. {(totalSalesTodayUSD * exchangeRate).toFixed(2)}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-lg font-bold">📈</div>
-          </div>
+        {/* PANTALLA DE BIENVENIDA (Vista por defecto) */}
+        {activeTab === 'welcome' && (
+          <div className="space-y-6 py-6 animate-fadeIn">
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-8 shadow-sm text-center space-y-4 max-w-2xl mx-auto">
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center text-2xl mx-auto font-bold shadow-xs">⚡</div>
+              <div className="space-y-1">
+                <h2 className="text-2xl font-black text-slate-900">¡Bienvenido al Sistema Enterprise!</h2>
+                <p className="text-xs text-slate-500">Selecciona el módulo con el que deseas trabajar hoy o consulta tus accesos rápidos a continuación.</p>
+              </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Transacciones Realizadas</p>
-              <h3 className="text-xl font-black text-slate-900 mt-1">{totalTransactionsCount}</h3>
-              <p className="text-[10px] text-blue-600 font-bold mt-0.5">Órdenes procesadas en sistema</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+                {userPermissions.includes('view_pos') && (
+                  <button onClick={() => handleTabChange('pos')} className="bg-blue-600 hover:bg-blue-500 text-white font-bold p-4 rounded-2xl text-xs shadow-sm transition flex flex-col items-center justify-center gap-2">
+                    <span className="text-lg">🛒</span>
+                    <span>POS / Caja</span>
+                  </button>
+                )}
+                {userPermissions.includes('view_inventory') && (
+                  <button onClick={() => handleTabChange('inventory')} className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold p-4 rounded-2xl text-xs transition flex flex-col items-center justify-center gap-2">
+                    <span className="text-lg">📦</span>
+                    <span>Inventario</span>
+                  </button>
+                )}
+                {userPermissions.includes('view_reports') && (
+                  <button onClick={() => handleTabChange('reports')} className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold p-4 rounded-2xl text-xs transition flex flex-col items-center justify-center gap-2">
+                    <span className="text-lg">📊</span>
+                    <span>Reportes</span>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-lg font-bold">🧾</div>
-          </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Alertas de Stock Bajo</p>
-              <h3 className="text-xl font-black text-slate-900 mt-1">{lowStockCount}</h3>
-              <p className="text-[10px] text-amber-600 font-bold mt-0.5">Productos por reponer</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+              <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Ventas Registradas</p>
+                  <h4 className="text-lg font-black text-slate-900 mt-0.5">${totalSalesTodayUSD.toFixed(2)}</h4>
+                </div>
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-bold text-sm">📈</div>
+              </div>
+              <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Alertas de Stock</p>
+                  <h4 className="text-lg font-black text-amber-600 mt-0.5">{lowStockCount} items</h4>
+                </div>
+                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center font-bold text-sm">⚠️</div>
+              </div>
+              <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Transacciones</p>
+                  <h4 className="text-lg font-black text-slate-900 mt-0.5">{totalTransactionsCount}</h4>
+                </div>
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center font-bold text-sm">🧾</div>
+              </div>
             </div>
-            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-lg font-bold">⚠️</div>
           </div>
-        </div>
+        )}
 
         {/* TAB 1: POS */}
         {activeTab === 'pos' && (
