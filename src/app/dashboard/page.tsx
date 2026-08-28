@@ -13,7 +13,7 @@ type Product = {
   category: string; 
   taxable: boolean;  
   stock: number;     
-  image?: string;    // <--- Modificación: campo de imagen opcional
+  image?: string;    // <--- Campo de imagen opcional
 };
 
 type CartItem = Product & { quantity: number };
@@ -327,7 +327,7 @@ export default function DashboardPOS() {
   const [newCategory, setNewCategory] = useState('Comida');
   const [newTaxable, setNewTaxable] = useState(true);
   const [newStock, setNewStock] = useState('');
-  const [newImage, setNewImage] = useState(''); // <--- Modificación: estado para la URL de la imagen
+  const [newImage, setNewImage] = useState(''); // <--- Estado para la URL de la imagen
 
   const [lastPrintedSale, setLastPrintedSale] = useState<any>(null);
   const [successModalData, setSuccessModalData] = useState<{ isOpen: boolean; changeUSD: number; changeBs: number; isCredit: boolean; clientName?: string } | null>(null);
@@ -682,13 +682,13 @@ export default function DashboardPOS() {
           category: newCategory,
           taxable: newTaxable,
           stock: parseInt(newStock),
-          image: newImage // <--- Modificación: enviando la URL de la imagen
+          image: newImage // <--- Se envía la URL de la imagen al backend
         })
       });
       const data = await res.json();
       if (data.success || res.ok) {
         alert('¡Producto creado exitosamente!');
-        setNewName(''); setNewCostPrice(''); setNewPrice(''); setNewStock(''); setNewImage(''); // <--- Limpieza del estado de imagen
+        setNewName(''); setNewCostPrice(''); setNewPrice(''); setNewStock(''); setNewImage(''); 
         const prodRes = await fetch('/api/products');
         const prodData = await prodRes.json();
         if (Array.isArray(prodData)) setProducts(prodData);
@@ -832,7 +832,7 @@ export default function DashboardPOS() {
       {/* Main Container */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
         
-        {/* PANTALLA DE BIENVENIDA (Vista por defecto) */}
+        {/* PANTALLA DE BIENVENIDA */}
         {activeTab === 'welcome' && (
           <div className="space-y-6 py-6 animate-fadeIn">
             <div className="bg-white border border-slate-200/80 rounded-3xl p-8 shadow-sm text-center space-y-4 max-w-2xl mx-auto">
@@ -890,7 +890,7 @@ export default function DashboardPOS() {
           </div>
         )}
 
-        {/* TAB 1: POS */}
+        {/* TAB 1: POS (Con soporte visual para imágenes de productos) */}
         {activeTab === 'pos' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
@@ -924,7 +924,7 @@ export default function DashboardPOS() {
                     className={`bg-white border rounded-3xl p-4 flex flex-col justify-between cursor-pointer transition shadow-xs hover:shadow-md ${product.stock <= 0 ? 'opacity-50 border-rose-200 bg-rose-50/20' : 'border-slate-200/80 hover:border-blue-400 hover:-translate-y-0.5'}`}
                   >
                     <div>
-                      {/* Modificación: Renderizado de la imagen si existe */}
+                      {/* Renderizado de la imagen en las tarjetas POS */}
                       {product.image ? (
                         <div className="w-full h-24 mb-2.5 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
                           <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
@@ -1021,7 +1021,7 @@ export default function DashboardPOS() {
           </div>
         )}
 
-        {/* TAB 2: INVENTORY */}
+        {/* TAB 2: INVENTORY (Con campo de URL de imagen incluido) */}
         {activeTab === 'inventory' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1032,7 +1032,7 @@ export default function DashboardPOS() {
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Nombre *</label>
                     <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ej. Hamburguesa Doble" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs" />
                   </div>
-                  {/* Modificación: Campo de entrada para la URL de la imagen */}
+                  {/* Campo de entrada para la URL de la imagen */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">URL de la Imagen</label>
                     <input type="text" value={newImage} onChange={e => setNewImage(e.target.value)} placeholder="https://ejemplo.com/imagen.jpg" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs" />
@@ -1442,7 +1442,7 @@ export default function DashboardPOS() {
         </div>
       )}
 
-      {/* Success / Receipt Modal con soporte para window.print() */}
+      {/* Success / Receipt Modal */}
       {successModalData && successModalData.isOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center animate-scaleUp">
